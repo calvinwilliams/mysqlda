@@ -1,1 +1,3 @@
-192.168.6.21	13306	calvindb	calvindb
+mysql1 192.168.6.21 13306 calvindb calvindb calvindb 1
+mysql2 192.168.6.21 13306 calvindb calvindb calvindb 3
+mysql3 192.168.6.21 13306 calvindb calvindb calvindb

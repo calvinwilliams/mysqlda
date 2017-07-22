@@ -9,11 +9,12 @@
 #@ c_FILE
 c_FILE		=	\
 			LOGC.c \
-			list.c \
 			rbtree.c \
 			util.c \
+			rbtree_ins.c \
 			main.c \
-			mysqlda.c \
+			config.c \
+			worker.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -25,6 +26,7 @@ HDERINST	=	$(_HDERINST)
 
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
+			-std=gnu99 \
 			-I/usr/include/mysql \
 
 ###### 链接选项

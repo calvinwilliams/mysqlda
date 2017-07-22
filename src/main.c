@@ -10,6 +10,7 @@ int main( int argc , char *argv[] )
 {
 	struct MysqldaEnvironment	env , *p_env = & env ;
 	int				i ;
+	int				nret = 0 ;
 	
 	memset( p_env , 0x00 , sizeof(struct MysqldaEnvironment) );
 	
@@ -36,15 +37,17 @@ int main( int argc , char *argv[] )
 		exit(7);
 	}
 	
-	INIT_LIST_HEAD( & (p_env->forward_list) );
+	nret = LoadConfig( p_env ) ;
+	if( nret )
+		return -nret;
 	
 	if( p_env->no_daemon_flag )
 	{
-		return -mysqlda( p_env );
+		return -worker( p_env );
 	}
 	else
 	{
-		return -BindDaemonServer( & mysqlda , (void*)p_env , 1 );
+		return -BindDaemonServer( & worker , (void*)p_env , 1 );
 	}
 }
 
