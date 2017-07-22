@@ -30,24 +30,35 @@ int main( int argc , char *argv[] )
 		{
 			p_env->no_daemon_flag = 1 ;
 		}
+		else if( strcmp( argv[i] , "-a" ) == 0 && i + 1 < argc )
+		{
+			p_env->action = argv[++i] ;
+		}
 	}
-	if( p_env->config_filename == NULL )
+	if( p_env->config_filename == NULL || p_env->action == NULL )
 	{
 		usage();
 		exit(7);
 	}
 	
-	nret = LoadConfig( p_env ) ;
-	if( nret )
-		return -nret;
-	
-	if( p_env->no_daemon_flag )
+	if( STRCMP( p_env->action , == , "init" ) )
 	{
-		return -worker( p_env );
+		return -InitConfigFile( p_env );
 	}
-	else
+	else if( STRCMP( p_env->action , == , "start" ) )
 	{
-		return -BindDaemonServer( & worker , (void*)p_env , 1 );
+		nret = LoadConfig( p_env ) ;
+		if( nret )
+			return -nret;
+		
+		if( p_env->no_daemon_flag )
+		{
+			return -worker( p_env );
+		}
+		else
+		{
+			return -BindDaemonServer( & worker , (void*)p_env , 1 );
+		}
 	}
 }
 

@@ -8,10 +8,12 @@
 ###### 源文件配置区
 #@ c_FILE
 c_FILE		=	\
-			LOGC.c \
 			rbtree.c \
+			LOGC.c \
+			fasterjson.c \
 			util.c \
 			rbtree_ins.c \
+			IDL_mysqlda_conf.dsc.c \
 			main.c \
 			config.c \
 			worker.c \
