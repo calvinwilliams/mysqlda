@@ -10,17 +10,17 @@
 
 #include "rbtree_tpl.h"
 
-LINK_RBTREENODE_INT( LinkMysqlForwardClientTreeNode , struct MysqldaEnvironment , forward_rbtree , struct MysqlForwardClient , forward_rbnode , serial_range_begin )
-UNLINK_RBTREENODE( UnlinkMysqlForwardClientTreeNode , struct MysqldaEnvironment , forward_rbtree , struct MysqlForwardClient , forward_rbnode )
-DESTROY_RBTREE( DestroyTcpdaemonAcceptedSessionTree , struct MysqldaEnvironment , forward_rbtree , struct MysqlForwardClient , forward_rbnode , NULL )
-struct MysqlForwardClient *QueryMysqlForwardClientRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no )
+LINK_RBTREENODE_INT( LinkForwardSessionTreeNode , struct MysqldaEnvironment , forward_rbtree , struct ForwardSession , forward_rbnode , serial_range_begin )
+UNLINK_RBTREENODE( UnlinkForwardSessionTreeNode , struct MysqldaEnvironment , forward_rbtree , struct ForwardSession , forward_rbnode )
+DESTROY_RBTREE( DestroyTcpdaemonAcceptedSessionTree , struct MysqldaEnvironment , forward_rbtree , struct ForwardSession , forward_rbnode , NULL )
+struct ForwardSession *QueryForwardSessionRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no )
 {
-	struct rb_node			*p_node = p_env->forward_rbtree.rb_node ;
-	struct MysqlForwardClient	*p = NULL ;
+	struct rb_node		*p_node = p_env->forward_rbtree.rb_node ;
+	struct ForwardSession	*p = NULL ;
 	
 	while( p_node )
 	{
-		p = container_of( p_node , struct MysqlForwardClient , forward_rbnode ) ;
+		p = container_of( p_node , struct ForwardSession , forward_rbnode ) ;
 		
 		if( serial_no < p->serial_range_begin )
 			p_node = p_node->rb_left ;
@@ -32,5 +32,5 @@ struct MysqlForwardClient *QueryMysqlForwardClientRangeTreeNode( struct MysqldaE
 	
 	return NULL;
 }
-TRAVEL_RBTREENODE( TravelMysqlForwardClientTreeNode , struct MysqldaEnvironment , forward_rbtree , struct MysqlForwardClient , forward_rbnode )
+TRAVEL_RBTREENODE( TravelForwardSessionTreeNode , struct MysqldaEnvironment , forward_rbtree , struct ForwardSession , forward_rbnode )
 

@@ -42,13 +42,13 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 
 int LoadConfig( struct MysqldaEnvironment *p_env )
 {
-	char				*file_buffer = NULL ;
-	int				file_size ;
-	mysqlda_conf			conf ;
-	int				forward_no ;
-	struct MysqlForwardClient	*p_forward = NULL ;
-	int				serial_range_begin ;
-	int				nret = 0 ;
+	char			*file_buffer = NULL ;
+	int			file_size ;
+	mysqlda_conf		conf ;
+	int			forward_no ;
+	struct ForwardSession	*p_forward_session = NULL ;
+	int			serial_range_begin ;
+	int			nret = 0 ;
 	
 	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
 	if( file_buffer == NULL )
@@ -69,36 +69,37 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	serial_range_begin = 0 ;
 	for( forward_no = 0 ; forward_no < conf._forward_count ; forward_no++ )
 	{
-		p_forward = (struct MysqlForwardClient *)malloc( sizeof(struct MysqlForwardClient) ) ;
-		if( p_forward == NULL )
+		p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
+		if( p_forward_session == NULL )
 		{
 			printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 			return -12;
 		}
-		memset( p_forward , 0x00 , sizeof(struct MysqlForwardClient) );
+		memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
 		
-		strcpy( p_forward->instance , conf.forward[forward_no].instance );
-		strcpy( p_forward->ip , conf.forward[forward_no].ip );
-		p_forward->port = conf.forward[forward_no].port ;
-		strcpy( p_forward->user , conf.forward[forward_no].user );
-		strcpy( p_forward->pass , conf.forward[forward_no].pass );
-		strcpy( p_forward->db , conf.forward[forward_no].db );
-		p_forward->power = conf.forward[forward_no].power ;
-		if( p_forward->power == 0 )
-			p_forward->power = 1 ;
+		p_forward_session->type = SESSIONTYPE_FORWARDSESSION ;
+		strcpy( p_forward_session->instance , conf.forward[forward_no].instance );
+		strcpy( p_forward_session->netaddr.ip , conf.forward[forward_no].ip );
+		p_forward_session->netaddr.port = conf.forward[forward_no].port ;
+		strcpy( p_forward_session->user , conf.forward[forward_no].user );
+		strcpy( p_forward_session->pass , conf.forward[forward_no].pass );
+		strcpy( p_forward_session->db , conf.forward[forward_no].db );
+		p_forward_session->power = conf.forward[forward_no].power ;
+		if( p_forward_session->power == 0 )
+			p_forward_session->power = 1 ;
 		
-		p_forward->serial_range_begin = serial_range_begin ;
+		p_forward_session->serial_range_begin = serial_range_begin ;
 		
-		nret = LinkMysqlForwardClientTreeNode( p_env , p_forward );
+		nret = LinkForwardSessionTreeNode( p_env , p_forward_session );
 		if( nret )
 		{
-			printf( "*** ERROR : LinkMysqlForwardClientTreeNode failed[%d] , errno[%d]\n" , nret , errno );
+			printf( "*** ERROR : LinkForwardSessionTreeNode failed[%d] , errno[%d]\n" , nret , errno );
 			return -13;
 		}
 		
-		serial_range_begin += p_forward->power ;
+		serial_range_begin += p_forward_session->power ;
 		
-		printf( "[%s] [%s][%d][%s][%s][%s][%u] [%ld]\n" , p_forward->instance , p_forward->ip , p_forward->port , p_forward->user , p_forward->pass , p_forward->db , p_forward->power , p_forward->serial_range_begin );
+		printf( "[%s] [%s][%d][%s][%s][%s][%u] [%ld]\n" , p_forward_session->instance , p_forward_session->netaddr.ip , p_forward_session->netaddr.port , p_forward_session->user , p_forward_session->pass , p_forward_session->db , p_forward_session->power , p_forward_session->serial_range_begin );
 	}
 	
 	p_env->total_power = serial_range_begin ;
@@ -110,10 +111,10 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	
 	printf( "total_power[%ld]\n" , p_env->total_power );
 	
-	strcpy( p_env->listen_ip , conf.server.listen_ip );
-	p_env->listen_port = conf.server.listen_port ;
+	strcpy( p_env->listen_session.netaddr.ip , conf.server.listen_ip );
+	p_env->listen_session.netaddr.port = conf.server.listen_port ;
 	
-	printf( "listen_ip[%s] listen_port[%d]\n" , p_env->listen_ip , p_env->listen_port );
+	printf( "listen_ip[%s] listen_port[%d]\n" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port );
 	
 	return 0;
 }

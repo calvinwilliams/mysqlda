@@ -17,6 +17,7 @@ c_FILE		=	\
 			main.c \
 			config.c \
 			worker.c \
+			comm.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
