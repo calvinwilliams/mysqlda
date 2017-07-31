@@ -19,51 +19,20 @@
 #include "my_global.h"
 #include "mysql.h"
 
+#include "openssl/evp.h"
+#include "openssl/sha.h"
+
 #include "IDL_mysqlda_conf.dsc.h"
 
-/* 通讯基础信息结构 */
-struct NetAddress
-{
-	char			ip[ sizeof(((mysqlda_conf*)0)->forward[0].ip) + 1 ] ;
-	int			port ;
-	int			sock ;
-	struct sockaddr_in	addr ;
-} ;
-
-/* 侦听会话结构 */
-struct ListenSession
-{
-	struct NetAddress	netaddr ;
-} ;
-
-#define SESSIONTYPE_ACCEPTEDSESSION	1
-#define SESSIONTYPE_FORWARDSESSION	2
-
-/* 客户端连接会话结构 */
-struct AcceptedSession
-{
-	unsigned char		type ;
-	struct NetAddress	netaddr ;
-	int			status ;
-} ;
-
-/* 服务端转发会话结构 */
-struct ForwardSession
-{
-	char			type ;
-	char			instance[ sizeof(((mysqlda_conf*)0)->forward[0].instance) ] ;
-	struct NetAddress	netaddr ;
-	char			user[ sizeof(((mysqlda_conf*)0)->forward[0].user) ] ;
-	char			pass[ sizeof(((mysqlda_conf*)0)->forward[0].pass) ] ;
-	char			db[ sizeof(((mysqlda_conf*)0)->forward[0].db) ] ;
-	unsigned int		power ;
-
-	unsigned long		serial_range_begin ;
-	
-	MYSQL			*mysql_connection ;
-	
-	struct rb_node		forward_rbnode ;
-} ;
+#ifndef LIKELY
+#if __GNUC__ >= 3
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
+#endif
+#endif
 
 /* 从NetAddress中设置、得到IP、PORT宏 */
 #define SETNETADDRESS(_netaddr_) \
@@ -147,16 +116,93 @@ struct ForwardSession
 #define SetHttpCloseExec(_sock_)
 #endif
 
+/* 通讯基础信息结构 */
+struct NetAddress
+{
+	char			ip[ sizeof(((mysqlda_conf*)0)->forward[0].ip) + 1 ] ;
+	int			port ;
+	int			sock ;
+	struct sockaddr_in	addr ;
+} ;
+
+/* 侦听会话结构 */
+struct ListenSession
+{
+	struct NetAddress	netaddr ;
+} ;
+
+#define SESSIONTYPE_ACCEPTEDSESSION	1
+#define SESSIONTYPE_FORWARDSESSION	2
+
+#define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						1
+#define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	2
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING			3
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_FORWARDING			4
+#define SESSIONSTATUS_FORWARDING							7
+
+/* 客户端连接会话 结构 */
+struct ForwardSession ;
+struct AcceptedSession
+{
+	unsigned char		type ;
+	int			status ;
+	
+	struct NetAddress	netaddr ;
+	
+	char			comm_buffer[ 4096 + 1 ] ;
+	int			fill_len ;
+	int			process_len ;
+	int			msg_len ;
+	
+	char			random_data[ 20 ] ;
+	
+	struct ForwardSession	*p_pair_forward_session ;
+} ;
+
+/* 服务端转发会话 结构 */
+struct ForwardPower ;
+struct ForwardSession
+{
+	char			type ;
+	
+	struct ForwardPower	*p_forward_power ;
+	
+	MYSQL			*mysql_connection ;
+	struct AcceptedSession	*p_pair_accepted_session ;
+	
+	struct rb_node		forward_session_rbnode ;
+} ;
+
+/* 服务端转发权重 结构 */
+struct ForwardPower
+{
+	char			instance[ sizeof(((mysqlda_conf*)0)->forward[0].instance) ] ;
+	struct NetAddress	netaddr ;
+	unsigned int		power ;
+	
+	unsigned long		serial_range_begin ;
+	
+	struct rb_root		forward_session_rbtree ;
+	
+	struct rb_node		forward_power_rbnode ;
+} ;
+
+/* MySQL分布式代理 环境结构 */
 struct MysqldaEnvironment
 {
 	char			*config_filename ;
 	int			no_daemon_flag ;
 	char			*action ;
 	
-	struct rb_root		forward_rbtree ;
+	char			user[ sizeof(((mysqlda_conf*)0)->auth.user) ] ;
+	char			pass[ sizeof(((mysqlda_conf*)0)->auth.pass) ] ;
+	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ;
+	
+	struct rb_root		forward_power_rbtree ;
 	unsigned long		total_power ;
 	
 	struct ListenSession	listen_session ;
+	
 	int			epoll_fd ;
 } ;
 
@@ -168,6 +214,8 @@ int WriteEntireFile( char *pathfilename , char *file_content , int file_len );
 char *StrdupEntireFile( char *pathfilename , int *p_file_len );
 
 int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag );
+
+void GenerateRandomData( char *data , int data_len );
 
 /*
  * config
@@ -186,6 +234,9 @@ int worker( void *pv );
  * comm
  */
 
+int ModifyEpollInput( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int ModifyEpollOutput( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+
 int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *p_listen_session );
 int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int OnSendingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
@@ -195,14 +246,23 @@ int OnSendingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
 
 /*
+ * app
+ */
+
+int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+
+/*
  * rbtree
  */
 
-int LinkForwardSessionTreeNode( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
-void UnlinkForwardSessionTreeNode( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
-void DestroyTcpdaemonAcceptedSessionTree( struct MysqldaEnvironment *p_env );
-struct ForwardSession *QueryForwardSessionRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no );
-struct ForwardSession *TravelForwardSessionTreeNode( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
+int LinkForwardPowerTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
+void UnlinkForwardPowerTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
+void DestroyTcpdaemonAcceptedPowerTree( struct MysqldaEnvironment *p_env );
+struct ForwardPower *QueryForwardPowerRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no );
+struct ForwardPower *TravelForwardPowerTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
 
 #endif
 

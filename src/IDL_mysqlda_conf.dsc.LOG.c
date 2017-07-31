@@ -16,18 +16,18 @@
 int FUNCNAME_DSCLOG_mysqlda_conf( mysqlda_conf *pst )
 {
 	int	index[10] = { 0 } ; index[0]++; index[0] = 0 ;
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.server.listen_ip[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->server.listen_ip );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.server.listen_port[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->server.listen_port );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.user[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.user );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.pass[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.pass );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.db[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.db );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf._forward_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->_forward_count );
 		for( index[1] = 0 ; index[1] < pst->_forward_count ; index[1]++ )
 		{
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].instance[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].instance );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].ip[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].ip );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].port[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].port );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].user[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].user );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].pass[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].pass );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].db[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].db );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].power[%u]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].power );
 		}
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.server.listen_ip[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->server.listen_ip );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.server.listen_port[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->server.listen_port );
 	return 0;
 }

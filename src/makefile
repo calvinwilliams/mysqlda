@@ -18,6 +18,7 @@ c_FILE		=	\
 			config.c \
 			worker.c \
 			comm.c \
+			app.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -36,6 +37,7 @@ CFLAGS		=	$(_CFLAGS) \
 LFLAGS		=	$(_LFLAGS) \
 			-L/usr/lib64/mysql \
 			-lmysqlclient \
+			-lcrypto \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=

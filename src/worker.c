@@ -3,6 +3,8 @@
 static int _worker( struct MysqldaEnvironment *p_env )
 {
 	struct AcceptedSession	*p_accepted_session = NULL ;
+	struct ForwardPower	*p_forward_power = NULL ;
+	MYSQL			*mysql_connection = NULL ;
 	struct ForwardSession	*p_forward_session = NULL ;
 	struct epoll_event	event ;
 	struct epoll_event	events[ 1024 ] ;
@@ -82,27 +84,30 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	/* 连接后端数据库 */
 	while(1)
 	{
-		p_forward_session = TravelForwardSessionTreeNode( p_env , p_forward_session ) ;
-		if( p_forward_session == NULL )
+		p_forward_power = TravelForwardPowerTreeNode( p_env , p_forward_power ) ;
+		if( p_forward_power == NULL )
 			break;
 		
-		p_forward_session->mysql_connection = mysql_init( NULL ) ;
-		if( p_forward_session->mysql_connection == NULL )
+		mysql_connection = mysql_init( NULL ) ;
+		if( mysql_connection == NULL )
 		{
 			ERRORLOG( "mysql_init failed , errno[%d]" , errno );
 			return -1;
 		}
 		
-		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->instance , p_forward_session->netaddr.ip , p_forward_session->netaddr.port , p_forward_session->user , p_forward_session->pass , p_forward_session->db );
-		if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->netaddr.ip , p_forward_session->user , p_forward_session->pass , p_forward_session->db , p_forward_session->netaddr.port , NULL , 0 ) == NULL )
+		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		if( mysql_real_connect( mysql_connection , p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_power->netaddr.port , NULL , 0 ) == NULL )
 		{
-			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->instance , p_forward_session->netaddr.ip , p_forward_session->netaddr.port , p_forward_session->user , p_forward_session->pass , p_forward_session->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
+			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
 			return -2;
 		}
 		else
 		{
-			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->instance , p_forward_session->netaddr.ip , p_forward_session->netaddr.port , p_forward_session->user , p_forward_session->pass , p_forward_session->db );
+			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		}
+		
+		mysql_close( mysql_connection );
+		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port );
 	}
 	
 	while(1)
@@ -115,18 +120,18 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		{
 			if( errno == EINTR )
 			{
-				InfoLog( __FILE__ , __LINE__ , "epoll_wait[%d] interrupted" , p_env->epoll_fd );
+				INFOLOG( "epoll_wait[%d] interrupted" , p_env->epoll_fd );
 				continue;
 			}
 			else
 			{
-				ErrorLog( __FILE__ , __LINE__ , "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno );
+				ERRORLOG( "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno );
 				return -1;
 			}
 		}
 		else
 		{
-			InfoLog( __FILE__ , __LINE__ , "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds );
+			INFOLOG( "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds );
 		}
 		
 		/* 处理所有事件 */
@@ -141,16 +146,16 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					nret = OnAcceptingSocket( p_env , & (p_env->listen_session) ) ;
 					if( nret < 0 )
 					{
-						FatalLog( __FILE__ , __LINE__ , "OnAcceptingSocket failed[%d]" , nret );
+						FATALLOG( "OnAcceptingSocket failed[%d]" , nret );
 						return -1;
 					}
 					else if( nret > 0 )
 					{
-						InfoLog( __FILE__ , __LINE__ , "OnAcceptingSocket return[%d]" , nret );
+						INFOLOG( "OnAcceptingSocket return[%d]" , nret );
 					}
 					else
 					{
-						DebugLog( __FILE__ , __LINE__ , "OnAcceptingSocket ok" );
+						DEBUGLOG( "OnAcceptingSocket ok" );
 					}
 				}
 				/* 出错事件 */
@@ -181,12 +186,12 @@ static int _worker( struct MysqldaEnvironment *p_env )
 						nret = OnReceivingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
-							FatalLog( __FILE__ , __LINE__ , "OnReceivingAcceptedSocket failed[%d]" , nret );
+							FATALLOG( "OnReceivingAcceptedSocket failed[%d]" , nret );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							InfoLog( __FILE__ , __LINE__ , "OnReceivingAcceptedSocket return[%d]" , nret );
+							INFOLOG( "OnReceivingAcceptedSocket return[%d]" , nret );
 							OnClosingAcceptedSocket( p_env , p_accepted_session );
 						}
 						else
@@ -200,29 +205,29 @@ static int _worker( struct MysqldaEnvironment *p_env )
 						nret = OnSendingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
-							FatalLog( __FILE__ , __LINE__ , "OnSendingAcceptedSocket failed[%d]" , nret );
+							FATALLOG( "OnSendingAcceptedSocket failed[%d]" , nret );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							InfoLog( __FILE__ , __LINE__ , "OnSendingAcceptedSocket return[%d]" , nret );
+							INFOLOG( "OnSendingAcceptedSocket return[%d]" , nret );
 							OnClosingAcceptedSocket( p_env , p_accepted_session );
 						}
 						else
 						{
-							DebugLog( __FILE__ , __LINE__ , "OnSendingAcceptedSocket ok" );
+							DEBUGLOG( "OnSendingAcceptedSocket ok" );
 						}
 					}
 					/* 出错事件 */
 					else if( ( p_event->events & EPOLLERR ) || ( p_event->events & EPOLLHUP ) )
 					{
-						FatalLog( __FILE__ , __LINE__ , "accepted session err or hup event[0x%X]" , p_event->events );
+						FATALLOG( "accepted session err or hup event[0x%X]" , p_event->events );
 						OnClosingAcceptedSocket( p_env , p_accepted_session );
 					}
 					/* 其它事件 */
 					else
 					{
-						FatalLog( __FILE__ , __LINE__ , "Unknow accepted session event[0x%X]" , p_event->events );
+						FATALLOG( "Unknow accepted session event[0x%X]" , p_event->events );
 						return -1;
 					}
 				}
@@ -236,17 +241,17 @@ static int _worker( struct MysqldaEnvironment *p_env )
 						nret = OnReceivingForwardSocket( p_env , p_forward_session ) ;
 						if( nret < 0 )
 						{
-							FatalLog( __FILE__ , __LINE__ , "OnReceivingForwardSocket failed[%d]" , nret );
+							FATALLOG( "OnReceivingForwardSocket failed[%d]" , nret );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							InfoLog( __FILE__ , __LINE__ , "OnReceivingForwardSocket return[%d]" , nret );
+							INFOLOG( "OnReceivingForwardSocket return[%d]" , nret );
 							OnClosingForwardSocket( p_env , p_forward_session );
 						}
 						else
 						{
-							DebugLog( __FILE__ , __LINE__ , "OnReceivingForwardSocket ok" );
+							DEBUGLOG( "OnReceivingForwardSocket ok" );
 						}
 					}
 					/* 可写事件 */
@@ -255,49 +260,39 @@ static int _worker( struct MysqldaEnvironment *p_env )
 						nret = OnSendingForwardSocket( p_env , p_forward_session ) ;
 						if( nret < 0 )
 						{
-							FatalLog( __FILE__ , __LINE__ , "OnSendingForwardSocket failed[%d]" , nret );
+							FATALLOG( "OnSendingForwardSocket failed[%d]" , nret );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							InfoLog( __FILE__ , __LINE__ , "OnSendingForwardSocket return[%d]" , nret );
+							INFOLOG( "OnSendingForwardSocket return[%d]" , nret );
 							OnClosingForwardSocket( p_env , p_forward_session );
 						}
 						else
 						{
-							DebugLog( __FILE__ , __LINE__ , "OnSendingForwardSocket ok" );
+							DEBUGLOG( "OnSendingForwardSocket ok" );
 						}
 					}
 					/* 出错事件 */
 					else if( ( p_event->events & EPOLLERR ) || ( p_event->events & EPOLLHUP ) )
 					{
-						FatalLog( __FILE__ , __LINE__ , "forward session err or hup event[0x%X]" , p_event->events );
+						FATALLOG( "forward session err or hup event[0x%X]" , p_event->events );
 						OnClosingForwardSocket( p_env , p_forward_session );
 					}
 					/* 其它事件 */
 					else
 					{
-						FatalLog( __FILE__ , __LINE__ , "Unknow forward session event[0x%X]" , p_event->events );
+						FATALLOG( "Unknow forward session event[0x%X]" , p_event->events );
 						return -1;
 					}
 				}
 				else
 				{
-					FatalLog( __FILE__ , __LINE__ , "Unknow session type[%d]" , type );
+					FATALLOG( "Unknow session type[%d]" , type );
 					return -1;
 				}
 			}
 		}
-	}
-	
-	while(1)
-	{
-		p_forward_session = TravelForwardSessionTreeNode( p_env , p_forward_session ) ;
-		if( p_forward_session == NULL )
-			break;
-		
-		mysql_close( p_forward_session->mysql_connection );
-		INFOLOG( "[%s]mysql_close[%s][%d][%s][%s][%s] ok" , p_forward_session->instance , p_forward_session->netaddr.ip , p_forward_session->netaddr.port , p_forward_session->user , p_forward_session->pass , p_forward_session->db );
 	}
 	
 	/* 关闭epoll池 */

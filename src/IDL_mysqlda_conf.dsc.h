@@ -95,21 +95,24 @@ typedef struct
 {
 	struct
 	{
-		char	instance[ 20 + 1 ] ;
-		char	ip[ 20 + 1 ] ;
-		int	port ;
+		char	listen_ip[ 20 + 1 ] ;
+		int	listen_port ;
+	} server ;
+	struct
+	{
 		char	user[ 40 + 1 ] ;
 		char	pass[ 40 + 1 ] ;
 		char	db[ 40 + 1 ] ;
+	} auth ;
+	struct
+	{
+		char	instance[ 20 + 1 ] ;
+		char	ip[ 20 + 1 ] ;
+		int	port ;
 		unsigned int	power ;
 	} forward [ 100 ] ;
 	int	_forward_count ;
 	int	_forward_size ;
-	struct
-	{
-		char	listen_ip[ 20 + 1 ] ;
-		int	listen_port ;
-	} server ;
 } mysqlda_conf ;
 
 _WINDLL_FUNC int DSCINIT_mysqlda_conf( mysqlda_conf *pst );

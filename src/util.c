@@ -110,3 +110,19 @@ int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag
 	return 0;
 }
 
+/* 产生二进制随机串 */
+void GenerateRandomData( char *data , int data_len )
+{
+	int	i ;
+	char	*p = NULL ;
+	
+	srand( time(NULL) );
+	
+	for( i = 0 , p = data ; i < data_len ; i++ , p++ )
+	{
+		(*p) = (char)rand() ;
+	}
+	
+	return;
+}
+
