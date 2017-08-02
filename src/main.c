@@ -2,7 +2,7 @@
 
 static void usage()
 {
-	printf( "USAGE : mysqlda -f (config_filename) --no-daemon\n" );
+	printf( "USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]\n" );
 	return;
 }
 

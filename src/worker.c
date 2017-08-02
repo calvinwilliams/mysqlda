@@ -63,7 +63,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_create ok" );
+		INFOLOG( "epoll_create[%d] ok" , p_env->epoll_fd );
 	}
 	
 	/* 加入侦听可读事件到epoll */
@@ -293,6 +293,9 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				}
 			}
 		}
+		
+		/* 处理超时 */
+		/* ... */
 	}
 	
 	/* 关闭epoll池 */
