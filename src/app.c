@@ -4,11 +4,10 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 {
 	int		len ;
 	
-	GenerateRandomData( p_accepted_session->random_data , 20 );
+	GenerateRandomDataWithoutNull( p_accepted_session->random_data , 20 );
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
-	p_accepted_session->process_len = 0 ;
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
@@ -20,7 +19,7 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , "5.5.52-MariaDB" ) ; p_accepted_session->fill_len += len+1 ;
 	
 	/* 连接ID */
-	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x10\x00\x00\x00" , 4 ); p_accepted_session->fill_len += 4 ;
+	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x6A\x00\x00\x00" , 4 ); p_accepted_session->fill_len += 4 ;
 	
 	/* 加密串的前半部分 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_accepted_session->random_data , 8 ); p_accepted_session->fill_len += 8 ;
@@ -55,9 +54,11 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
 	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
 	
 	return 0;
 }
@@ -70,6 +71,8 @@ static int CheckMysqlEncryptPassword( char *random_data , char *pass , char *enc
 	unsigned char		random_data_and_pass_sha1_sha1__sha1[ 20 ] ;
 	unsigned char		enc_result[ 20 ] ;
 	int			i ;
+	
+	DEBUGLOG( "--- CHECK MYSQL ENCRYPT PASSWORD --- BEGIN" );
 	
 	/*
 	 * SHA1(password) XOR SHA1("20-bytes random data from server" <concat> SHA1(SHA1(password)))
@@ -97,6 +100,7 @@ static int CheckMysqlEncryptPassword( char *random_data , char *pass , char *enc
 	DEBUGHEXLOG( (char*)enc_result , 20 , "enc_result [%d]bytes" , 20 );
 	
 	DEBUGHEXLOG( (char*)enc_compare , 20 , "enc_compare [%d]bytes" , 20 );
+	DEBUGLOG( "--- CHECK MYSQL ENCRYPT PASSWORD --- END" );
 	if( memcmp( enc_result , enc_compare , 20 ) == 0 )
 		return 0;
 	else
@@ -152,7 +156,6 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
-	p_accepted_session->process_len = 0 ;
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
@@ -174,9 +177,11 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
 	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
 	
 	return 0;
 }
@@ -187,7 +192,6 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
-	p_accepted_session->process_len = 0 ;
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
@@ -209,9 +213,11 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
 	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
 	
 	return 0;
 }

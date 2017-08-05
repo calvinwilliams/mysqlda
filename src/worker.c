@@ -22,7 +22,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "socket ok[%d]" , p_env->listen_session.netaddr.sock );
+		INFOLOG( "socket ok , #%d#" , p_env->listen_session.netaddr.sock );
 	}
 	
 	SetHttpNonblock( p_env->listen_session.netaddr.sock );
@@ -34,24 +34,24 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	nret = bind( p_env->listen_session.netaddr.sock , (struct sockaddr *) & (p_env->listen_session.netaddr.addr) , sizeof(struct sockaddr) ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "bind[%s:%d][%d] failed , errno[%d]" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock , errno );
+		ERRORLOG( "bind[%s:%d] #%d# failed , errno[%d]" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock , errno );
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "bind[%s:%d][%d] ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
+		INFOLOG( "bind[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 处于侦听状态了 */
 	nret = listen( p_env->listen_session.netaddr.sock , 10240 ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "listen[%s:%d][%d] failed , errno[%d]" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock , errno );
+		ERRORLOG( "listen[%s:%d] #%d# failed , errno[%d]" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock , errno );
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "listen[%s:%d][%d] ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
+		INFOLOG( "listen[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 创建epoll池 */
@@ -63,7 +63,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_create[%d] ok" , p_env->epoll_fd );
+		INFOLOG( "epoll_create ok , #%d#" , p_env->epoll_fd );
 	}
 	
 	/* 加入侦听可读事件到epoll */
@@ -73,12 +73,12 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_env->listen_session.netaddr.sock , & event ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "epoll_ctl[%d] add listen_session failed , errno[%d]" , p_env->epoll_fd , errno );
+		ERRORLOG( "epoll_ctl #%d# add listen_session failed , errno[%d]" , p_env->epoll_fd , errno );
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "epoll_ctl[%d] add listen_session[%d] ok" , p_env->epoll_fd , p_env->listen_session.netaddr.sock );
+		INFOLOG( "epoll_ctl #%d# add listen_session #%d# ok" , p_env->epoll_fd , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 连接后端数据库 */
@@ -113,25 +113,25 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	while(1)
 	{
 		/* 等待epoll事件，或者1秒超时 */
-		InfoLog( __FILE__ , __LINE__ , "epoll_wait[%d] ..." , p_env->epoll_fd );
+		InfoLog( __FILE__ , __LINE__ , "epoll_wait #%d# ..." , p_env->epoll_fd );
 		memset( events , 0x00 , sizeof(events) );
 		epoll_nfds = epoll_wait( p_env->epoll_fd , events , sizeof(events)/sizeof(events[0]) , 1000 ) ;
 		if( epoll_nfds == -1 )
 		{
 			if( errno == EINTR )
 			{
-				INFOLOG( "epoll_wait[%d] interrupted" , p_env->epoll_fd );
+				INFOLOG( "epoll_wait #%d# interrupted" , p_env->epoll_fd );
 				continue;
 			}
 			else
 			{
-				ERRORLOG( "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno );
+				ERRORLOG( "epoll_wait #%d# failed , errno[%d]" , p_env->epoll_fd , errno );
 				return -1;
 			}
 		}
 		else
 		{
-			INFOLOG( "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds );
+			INFOLOG( "epoll_wait #%d# return[%d]events" , p_env->epoll_fd , epoll_nfds );
 		}
 		
 		/* 处理所有事件 */
@@ -143,6 +143,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				/* 可读事件 */
 				if( p_event->events & EPOLLIN )
 				{
+					INFOLOG( "OnAcceptingSocket ..." );
 					nret = OnAcceptingSocket( p_env , & (p_env->listen_session) ) ;
 					if( nret < 0 )
 					{
@@ -183,6 +184,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					/* 可读事件 */
 					if( p_event->events & EPOLLIN )
 					{
+						INFOLOG( "OnReceivingAcceptedSocket ..." );
 						nret = OnReceivingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
@@ -202,6 +204,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					/* 可写事件 */
 					else if( p_event->events & EPOLLOUT )
 					{
+						INFOLOG( "OnSendingAcceptedSocket ..." );
 						nret = OnSendingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
@@ -238,6 +241,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					/* 可读事件 */
 					if( p_event->events & EPOLLIN )
 					{
+						INFOLOG( "OnReceivingForwardSocket ..." );
 						nret = OnReceivingForwardSocket( p_env , p_forward_session ) ;
 						if( nret < 0 )
 						{
@@ -257,6 +261,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					/* 可写事件 */
 					else if( p_event->events & EPOLLOUT )
 					{
+						INFOLOG( "OnSendingForwardSocket ..." );
 						nret = OnSendingForwardSocket( p_env , p_forward_session ) ;
 						if( nret < 0 )
 						{

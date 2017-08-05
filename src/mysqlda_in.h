@@ -143,6 +143,8 @@ struct ListenSession
 #define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
 
 /* 客户端连接会话 结构 */
+#define MAXLEN_ACCEPTED_SESSION_COMM_BUFFER	(3+1+(2<<24))
+
 struct ForwardSession ;
 struct AcceptedSession
 {
@@ -151,10 +153,10 @@ struct AcceptedSession
 	
 	struct NetAddress	netaddr ;
 	
-	char			comm_buffer[ 4096 + 1 ] ;
+	char			*comm_buffer ;
 	int			fill_len ;
 	int			process_len ;
-	int			msg_len ;
+	int			comm_body_len ;
 	
 	char			random_data[ 20 ] ;
 	
@@ -217,7 +219,7 @@ char *StrdupEntireFile( char *pathfilename , int *p_file_len );
 
 int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag );
 
-void GenerateRandomData( char *data , int data_len );
+void GenerateRandomDataWithoutNull( char *data , int data_len );
 
 /*
  * config
@@ -236,22 +238,11 @@ int worker( void *pv );
  * comm
  */
 
-int AddAcceptedSessionEpollOutput( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int ModifyAcceptedSessionEpollInput( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int ModifyAcceptedSessionEpollOutput( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int ModifyAcceptedSessionEpollError( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int DeleteAcceptedSessionEpoll( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-
-int AddForwardSessionEpollInput( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
-int ModifyForwardSessionEpollInput( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
-int ModifyForwardSessionEpollOutput( struct MysqldaEnvironment *p_env , struct ForwardSession *p_accepted_session );
-int ModifyForwardSessionEpollError( struct MysqldaEnvironment *p_env , struct ForwardSession *p_accepted_session );
-int DeleteForwardSessionEpoll( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
-
 int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *p_listen_session );
 int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int OnSendingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int OnClosingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+
 int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
 int OnSendingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
 int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session );
