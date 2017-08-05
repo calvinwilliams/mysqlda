@@ -7,8 +7,7 @@
 
 ###### 子目录配置区
 DIROBJS		= \
-			mysqlda \
-			mysqlda_api \
+			src \
 
 ###### 加载mktpl模板库
 #@ FILESYSTEM
