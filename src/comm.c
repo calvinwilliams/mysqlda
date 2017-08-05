@@ -343,27 +343,22 @@ _GOTO_SENDING_AGAIN :
 		
 		if( 3+1+p_accepted_session->comm_body_len == p_accepted_session->process_len )
 		{
+			p_accepted_session->fill_len = 0 ;
+			p_accepted_session->process_len = 0 ;
+			p_accepted_session->comm_body_len = 0 ;
+			
 			if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE ) )
 			{
-				p_accepted_session->fill_len = 0 ;
-				p_accepted_session->process_len = 0 ;
-				p_accepted_session->comm_body_len = 0 ;
 				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION ;
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 			}
 			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING ) )
 			{
-				p_accepted_session->fill_len = 0 ;
-				p_accepted_session->process_len = 0 ;
-				p_accepted_session->comm_body_len = 0 ;
 				INFOLOG( "need to close#%d#" , p_accepted_session->netaddr.sock );
 				return 1;
 			}
 			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_FORWARDING ) )
 			{
-				p_accepted_session->fill_len = 0 ;
-				p_accepted_session->process_len = 0 ;
-				p_accepted_session->comm_body_len = 0 ;
 				p_accepted_session->status = SESSIONSTATUS_FORWARDING ;
 				
 				p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
