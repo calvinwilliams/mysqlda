@@ -222,3 +222,77 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	return 0;
 }
 
+int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
+{
+	struct ForwardSession	*p_forward_session = NULL ;
+	unsigned long		hash_val ;
+	
+	uint32_t		*p = NULL ;
+	int			len ;
+	
+	if( p_accepted_session->p_pair_forward_session == NULL )
+	{
+		p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
+		if( p_forward_session == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno );
+			return 1;
+		}
+		memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
+		
+		p_accepted_session->p_pair_forward_session = p_forward_session ;
+		
+		p_forward_session->type = SESSIONTYPE_FORWARDSESSION ;
+		p_accepted_session->p_pair_forward_session = p_forward_session ;
+		p_forward_session->p_pair_accepted_session = p_accepted_session ;
+	}
+	else
+	{
+		p_forward_session = p_accepted_session->p_pair_forward_session ;
+		
+		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+		mysql_close( p_forward_session->mysql_connection );
+		p_forward_session->mysql_connection = NULL ;
+	}
+	
+	hash_val = CalcHash( p_accepted_session->comm_buffer+5 , p_accepted_session->comm_body_len-1 ) % (p_env->total_power) ;
+	INFOLOG( "library[%.*s] total_power[%d] hash_val[%d]" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 , p_env->total_power , hash_val );
+	
+	p_forward_session->p_forward_power = QueryForwardPowerRangeTreeNode( p_env , hash_val ) ;
+	p_forward_session->mysql_connection = mysql_init( NULL ) ;
+	if( p_forward_session->mysql_connection == NULL )
+	{
+		ERRORLOG( "mysql_init failed , errno[%d]" , errno );
+		return 1;
+	}
+	
+	INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+	if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_power->netaddr.port , NULL , 0 ) == NULL )
+	{
+		ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+	}
+	
+	/* 初始化通讯缓冲区，跳过通讯头 */
+	p_accepted_session->fill_len = 3 ;
+	
+	/* 存储索引 */
+	p = (uint32*)(p_accepted_session->comm_buffer+3) ;
+	(*p) = htonl(hash_val) ;
+	p_accepted_session->fill_len += sizeof(uint32_t) ;
+	
+	/* 最后 填充通讯头 */
+	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
+	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
+	
+	return 0;
+}
+

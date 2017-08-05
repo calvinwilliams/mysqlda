@@ -106,8 +106,8 @@ static int _worker( struct MysqldaEnvironment *p_env )
 			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		}
 		
-		mysql_close( mysql_connection );
 		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port );
+		mysql_close( mysql_connection );
 	}
 	
 	while(1)

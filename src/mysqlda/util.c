@@ -128,3 +128,18 @@ void GenerateRandomDataWithoutNull( char *data , int data_len )
 	return;
 }
 
+/* ¼ÆËã×Ö·û´®µÄ¹şÏ£Öµ */
+unsigned long CalcHash( char *str , int str_len )
+{
+	char		*p = str ;
+	char		*p_end = str + str_len - 1 ;
+	unsigned long	ul = 0 ;
+	
+	for( ; p <= p_end ; p++ )
+	{
+		ul  = (*p) + (ul<<6)+ (ul>>16) - ul ;
+	}
+	
+	return ul;
+}
+

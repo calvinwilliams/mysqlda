@@ -1,184 +1,5 @@
 #include "mysqlda_in.h"
-
-#define AddAcceptedSessionEpollOutput(_p_env_,_p_accepted_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLOUT | EPOLLERR ; \
-		event.data.ptr = (_p_accepted_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_ADD , (_p_accepted_session_)->netaddr.sock , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# add #%d# accepted session EPOLLOUT failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# add #%d# accepted session EPOLLOUT ok" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock ); \
-		} \
-	} \
-
-#define ModifyAcceptedSessionEpollInput(_p_env_,_p_accepted_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLIN | EPOLLERR ; \
-		event.data.ptr = (_p_accepted_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_accepted_session_)->netaddr.sock , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLIN failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLIN ok" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock ); \
-		} \
-	} \
-
-#define ModifyAcceptedSessionEpollOutput(_p_env_,_p_accepted_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLOUT | EPOLLERR ; \
-		event.data.ptr = (_p_accepted_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_accepted_session_)->netaddr.sock , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLOUT failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLOUT ok" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock ); \
-		} \
-	} \
-
-#define ModifyAcceptedSessionEpollError(_p_env_,_p_accepted_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLERR ; \
-		event.data.ptr = (_p_accepted_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_accepted_session_)->netaddr.sock , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLERR failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# accepted session EPOLLERR ok" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock ); \
-		} \
-	} \
-
-#define DeleteAcceptedSessionEpoll(_p_env_,_p_accepted_session_) \
-	{ \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_DEL , (_p_accepted_session_)->netaddr.sock , NULL ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# delete #%d# accpeted session failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# delete #%d# accpeted session ok" , (_p_env_)->epoll_fd , (_p_accepted_session_)->netaddr.sock ); \
-		} \
-	} \
-
-#define AddForwardSessionEpollInput(_p_env_,_p_forward_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLIN | EPOLLERR ; \
-		event.data.ptr = (_p_forward_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_ADD , (_p_forward_session_)->mysql_connection->net.fd , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# add #%d# forward session EPOLLIN failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# add #%d# forward session EPOLLIN ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
-		} \
-	} \
-
-#define ModifyForwardSessionEpollInput(_p_env_,_p_forward_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLIN | EPOLLERR ; \
-		event.data.ptr = (_p_forward_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_forward_session_)->mysql_connection->net.fd , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLIN failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLIN ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
-		} \
-	}
-
-#define ModifyForwardSessionEpollOutput(_p_env_,_p_forward_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLOUT | EPOLLERR ; \
-		event.data.ptr = (_p_forward_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_forward_session_)->mysql_connection->net.fd , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLOUT failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLOUT ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
-		} \
-	} \
-
-#define ModifyForwardSessionEpollError(_p_env_,_p_forward_session_) \
-	{ \
-		struct epoll_event	event ; \
-		\
-		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
-		event.events = EPOLLERR ; \
-		event.data.ptr = (_p_forward_session_) ; \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_MOD , (_p_forward_session_)->mysql_connection->net.fd , & event ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLERR failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# modify #%d# forward session EPOLLERR ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
-		} \
-	} \
-
-#define DeleteForwardSessionEpoll(_p_env_,_p_forward_session_) \
-	{ \
-		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_DEL , (_p_forward_session_)->mysql_connection->net.fd , NULL ) ; \
-		if( nret == -1 ) \
-		{ \
-			ERRORLOG( "epoll_ctl #%d# delete #%d# forward session failed , errno[%d]" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd , errno ); \
-			return -1; \
-		} \
-		else \
-		{ \
-			DEBUGLOG( "epoll_ctl #%d# delete #%d# forward session ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
-		} \
-	} \
+#include "ctl_epoll.h"
 
 int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *p_listen_session )
 {
@@ -274,15 +95,28 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 		if( p_accepted_session->fill_len > 3 && p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = MYSQL_COMMLEN(p_accepted_session->comm_buffer) ;
+			DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
 			
-			if( p_accepted_session->comm_body_len == 1 && p_accepted_session->comm_buffer[4] == 0x01 )
+			if( p_accepted_session->comm_buffer[4] == 0x01 )
 			{
 				INFOLOG( "mysql client close socket" );
 				return 1;
 			}
+			else if( p_accepted_session->comm_buffer[4] == 0x79 )
+			{
+				INFOLOG( "select library[%.100s]" , p_accepted_session->comm_buffer+5 );
+				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+				nret = DatabaseSelectLibrary( p_env , p_accepted_session ) ;
+				if( nret )
+					return 1;
+				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				return 0;
+			}
 		}
-		
-		DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
+		else
+		{
+			DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
+		}
 		
 		if( p_accepted_session->comm_body_len > 0 && p_accepted_session->fill_len >= 3+1+p_accepted_session->comm_body_len )
 		{
@@ -301,7 +135,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				else
 				{
 					INFOLOG( "CheckAuthenticationMessage ok" );
-					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_FORWARDING ;
+					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY ;
 					FormatAuthResultOk( p_env , p_accepted_session );
 					ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 				}
@@ -343,12 +177,11 @@ _GOTO_SENDING_AGAIN :
 		
 		if( 3+1+p_accepted_session->comm_body_len == p_accepted_session->process_len )
 		{
-			p_accepted_session->fill_len = 0 ;
-			p_accepted_session->process_len = 0 ;
-			p_accepted_session->comm_body_len = 0 ;
-			
 			if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE ) )
 			{
+				p_accepted_session->fill_len = 0 ;
+				p_accepted_session->process_len = 0 ;
+				p_accepted_session->comm_body_len = 0 ;
 				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION ;
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 			}
@@ -357,41 +190,20 @@ _GOTO_SENDING_AGAIN :
 				INFOLOG( "need to close#%d#" , p_accepted_session->netaddr.sock );
 				return 1;
 			}
-			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_FORWARDING ) )
+			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY ) )
 			{
+				p_accepted_session->fill_len = 0 ;
+				p_accepted_session->process_len = 0 ;
+				p_accepted_session->comm_body_len = 0 ;
+				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
+			}
+			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ) )
+			{
+				p_accepted_session->fill_len = 0 ;
+				p_accepted_session->process_len = 0 ;
+				p_accepted_session->comm_body_len = 0 ;
 				p_accepted_session->status = SESSIONSTATUS_FORWARDING ;
-				
-				p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
-				if( p_forward_session == NULL )
-				{
-					ERRORLOG( "malloc failed , errno[%d]" , errno );
-					return 1;
-				}
-				memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
-				
-				p_forward_session->type = SESSIONTYPE_FORWARDSESSION ;
-				p_forward_session->p_forward_power = QueryForwardPowerRangeTreeNode( p_env , 0 ) ;
-				p_forward_session->mysql_connection = mysql_init( NULL ) ;
-				if( p_forward_session->mysql_connection == NULL )
-				{
-					ERRORLOG( "mysql_init failed , errno[%d]" , errno );
-					return 1;
-				}
-				
-				INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
-				if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_power->netaddr.port , NULL , 0 ) == NULL )
-				{
-					ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
-					return 1;
-				}
-				else
-				{
-					INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
-				}
-				
-				p_accepted_session->p_pair_forward_session = p_forward_session ;
-				p_forward_session->p_pair_accepted_session = p_accepted_session ;
-				
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 				AddForwardSessionEpollInput( p_env , p_forward_session );
 			}
@@ -428,13 +240,17 @@ int OnClosingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedS
 	
 	DeleteAcceptedSessionEpoll( p_env , p_accepted_session );
 	close( p_accepted_session->netaddr.sock );
-	INFOLOG( "close#%d#" , p_accepted_session->netaddr.sock );
+	INFOLOG( "close #%d#" , p_accepted_session->netaddr.sock );
 	
 	if( p_accepted_session->p_pair_forward_session )
 	{
-		DeleteForwardSessionEpoll( p_env , p_forward_session );
-		mysql_close( p_forward_session->mysql_connection );
-		INFOLOG( "[%s]#%d#mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+		if( p_forward_session->mysql_connection )
+		{
+			DeleteForwardSessionEpoll( p_env , p_forward_session );
+			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+			mysql_close( p_forward_session->mysql_connection );
+			p_forward_session->mysql_connection = NULL ;
+		}
 		
 		free( p_forward_session );
 	}
@@ -541,14 +357,18 @@ int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 	
 	int			nret = 0 ;
 	
-	DeleteForwardSessionEpoll( p_env , p_forward_session );
-	mysql_close( p_forward_session->mysql_connection );
-	INFOLOG( "[%s]#%d#mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+	if( p_forward_session->mysql_connection )
+	{
+		DeleteForwardSessionEpoll( p_env , p_forward_session );
+		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+		mysql_close( p_forward_session->mysql_connection );
+		p_forward_session->mysql_connection = NULL ;
+	}
 	
 	if( p_forward_session->p_pair_accepted_session )
 	{
 		DeleteAcceptedSessionEpoll( p_env , p_accepted_session );
-		INFOLOG( "close[%d]" , p_accepted_session->netaddr.sock );
+		INFOLOG( "close #%d#" , p_accepted_session->netaddr.sock );
 		close( p_accepted_session->netaddr.sock );
 		
 		free( p_accepted_session->comm_buffer );

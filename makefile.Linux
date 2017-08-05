@@ -10,6 +10,7 @@ MAKEFILE_POSTFIX=.Linux
 ###### 子目录配置区
 DIROBJS		= \
 			src \
+			test \
 
 ###### 加载mktpl模板库
 # 文件系统宏

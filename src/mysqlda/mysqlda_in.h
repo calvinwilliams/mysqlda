@@ -137,7 +137,8 @@ struct ListenSession
 #define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						1
 #define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	2
 #define SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING			3
-#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_FORWARDING			4
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY		4
+#define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			5
 #define SESSIONSTATUS_FORWARDING							7
 
 #define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
@@ -221,6 +222,8 @@ int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag
 
 void GenerateRandomDataWithoutNull( char *data , int data_len );
 
+unsigned long CalcHash( char *str , int str_len );
+
 /*
  * config
  */
@@ -255,6 +258,7 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 
 /*
  * rbtree
