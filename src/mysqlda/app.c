@@ -224,11 +224,27 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 
 int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
+	char			library[ MAXLEN_LIBRARY + 1 ] ;
+	int			library_len ;
 	struct ForwardSession	*p_forward_session = NULL ;
-	unsigned long		hash_val ;
+	unsigned long		hash_val = 0 ;
+	struct ForwardPower	*p_forward_power = NULL ;
+	struct ForwardLibrary	forward_library ;
+	struct ForwardLibrary	*p_forward_library = NULL ;
 	
 	uint32_t		*p = NULL ;
 	int			len ;
+	
+	int			nret = 0 ;
+	
+	if( p_accepted_session->comm_body_len-1 > MAXLEN_LIBRARY )
+	{
+		ERRORLOG( "library[%.*s] too long" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
+		return 1;
+	}
+	memset( library , 0x00 , sizeof(library) );
+	sprintf( library , "%.*s" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
+	library_len = strlen(library) ;
 	
 	if( p_accepted_session->p_pair_forward_session == NULL )
 	{
@@ -237,6 +253,10 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		{
 			ERRORLOG( "malloc failed , errno[%d]" , errno );
 			return 1;
+		}
+		else
+		{
+			INFOLOG( "malloc ok , p_forward_session[%p]" , p_forward_session );
 		}
 		memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
 		
@@ -249,32 +269,80 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	else
 	{
 		p_forward_session = p_accepted_session->p_pair_forward_session ;
-		
-		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
-		mysql_close( p_forward_session->mysql_connection );
-		p_forward_session->mysql_connection = NULL ;
 	}
 	
-	hash_val = CalcHash( p_accepted_session->comm_buffer+5 , p_accepted_session->comm_body_len-1 ) % (p_env->total_power) ;
-	INFOLOG( "library[%.*s] total_power[%d] hash_val[%d]" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 , p_env->total_power , hash_val );
-	
-	p_forward_session->p_forward_power = QueryForwardPowerRangeTreeNode( p_env , hash_val ) ;
-	p_forward_session->mysql_connection = mysql_init( NULL ) ;
-	if( p_forward_session->mysql_connection == NULL )
+	memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
+	strcpy( forward_library.library , library );
+	p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
+	if( p_forward_library == NULL )
 	{
-		ERRORLOG( "mysql_init failed , errno[%d]" , errno );
-		return 1;
-	}
-	
-	INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
-	if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_power->netaddr.port , NULL , 0 ) == NULL )
-	{
-		ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
-		return 1;
+		hash_val = CalcHash( library , library_len ) % (p_env->total_power) ;
+		INFOLOG( "library[%s] total_power[%d] hash_val[%d]" , library , p_env->total_power , hash_val );
+		p_forward_power = QueryForwardSerialRangeTreeNode( p_env , hash_val ) ;
+		INFOLOG( "library[%s] p_forward_power[%p] instance[%s]" , library , p_forward_power , (p_forward_power?p_forward_power->instance:"") );
 	}
 	else
 	{
-		INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		p_forward_power = p_forward_library->p_forward_power ;
+	}
+	
+	if( p_forward_session->p_forward_power != p_forward_power )
+	{
+		p_forward_session->p_forward_power = p_forward_power ;
+		
+		if( p_forward_session->mysql_connection )
+		{
+			DeleteForwardSessionEpoll( p_env , p_forward_session );
+			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+			mysql_close( p_forward_session->mysql_connection );
+		}
+		
+		p_forward_session->mysql_connection = mysql_init( NULL ) ;
+		if( p_forward_session->mysql_connection == NULL )
+		{
+			ERRORLOG( "mysql_init failed , errno[%d]" , errno );
+			return 1;
+		}
+		
+		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_power->netaddr.port , NULL , 0 ) == NULL )
+		{
+			ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
+			return 1;
+		}
+		else
+		{
+			INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		}
+		
+		AddForwardSessionEpollInput( p_env , p_forward_session );
+	}
+	
+	if( p_forward_library == NULL )
+	{
+		p_forward_library = (struct ForwardLibrary *)malloc( sizeof(struct ForwardLibrary) ) ;
+		if( p_forward_library == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno );
+			return 1;
+		}
+		memset( p_forward_library , 0x00 , sizeof(struct ForwardLibrary) );
+		
+		strcpy( p_forward_library->library , library );
+		p_forward_library->hash_val = hash_val ;
+		p_forward_library->p_forward_power = p_forward_session->p_forward_power ;
+		
+		nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
+		if( nret )
+		{
+			ERRORLOG( "LinkForwardLibraryTreeNode failed[%d]" , nret );
+			free( p_forward_library );
+			return 1;
+		}
+		else
+		{
+			INFOLOG( "LinkForwardLibraryTreeNode ok , library[%s] instance[%s]" , p_forward_library->library , p_forward_library->p_forward_power->instance );
+		}
 	}
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
@@ -282,7 +350,7 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	
 	/* 存储索引 */
 	p = (uint32*)(p_accepted_session->comm_buffer+3) ;
-	(*p) = htonl(hash_val) ;
+	(*p) = htonl(p_forward_library->hash_val) ;
 	p_accepted_session->fill_len += sizeof(uint32_t) ;
 	
 	/* 最后 填充通讯头 */

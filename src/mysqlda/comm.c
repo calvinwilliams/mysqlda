@@ -1,5 +1,4 @@
 #include "mysqlda_in.h"
-#include "ctl_epoll.h"
 
 int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *p_listen_session )
 {
@@ -105,7 +104,8 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 			else if( p_accepted_session->comm_buffer[4] == 0x79 )
 			{
 				INFOLOG( "select library[%.100s]" , p_accepted_session->comm_buffer+5 );
-				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+				if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
+					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
 				nret = DatabaseSelectLibrary( p_env , p_accepted_session ) ;
 				if( nret )
 					return 1;
@@ -205,7 +205,6 @@ _GOTO_SENDING_AGAIN :
 				p_accepted_session->comm_body_len = 0 ;
 				p_accepted_session->status = SESSIONSTATUS_FORWARDING ;
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
-				AddForwardSessionEpollInput( p_env , p_forward_session );
 			}
 			else if( LIKELY( p_accepted_session->status == SESSIONSTATUS_FORWARDING ) )
 			{

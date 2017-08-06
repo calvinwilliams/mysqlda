@@ -84,7 +84,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	/* 连接后端数据库 */
 	while(1)
 	{
-		p_forward_power = TravelForwardPowerTreeNode( p_env , p_forward_power ) ;
+		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
 		if( p_forward_power == NULL )
 			break;
 		

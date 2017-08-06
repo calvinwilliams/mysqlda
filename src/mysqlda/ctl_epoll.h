@@ -1,3 +1,6 @@
+#ifndef _H_CTL_EPOLL_
+#define _H_CTL_EPOLL_
+
 #define AddAcceptedSessionEpollOutput(_p_env_,_p_accepted_session_) \
 	{ \
 		struct epoll_event	event ; \
@@ -177,4 +180,6 @@
 			DEBUGLOG( "epoll_ctl #%d# delete #%d# forward session ok" , (_p_env_)->epoll_fd , (_p_forward_session_)->mysql_connection->net.fd ); \
 		} \
 	} \
+
+#endif
 

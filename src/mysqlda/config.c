@@ -92,11 +92,18 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		
 		p_forward_power->serial_range_begin = serial_range_begin ;
 		
-		nret = LinkForwardPowerTreeNode( p_env , p_forward_power );
+		nret = LinkForwardInstanceTreeNode( p_env , p_forward_power );
 		if( nret )
 		{
-			printf( "*** ERROR : LinkForwardPowerTreeNode failed[%d] , errno[%d]\n" , nret , errno );
+			printf( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]\n" , nret , errno );
 			return -13;
+		}
+		
+		nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_power );
+		if( nret )
+		{
+			printf( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]\n" , nret , errno );
+			return -14;
 		}
 		
 		serial_range_begin += p_forward_power->power ;

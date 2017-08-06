@@ -1,10 +1,6 @@
 #ifndef _H_MYSQLDA_API_
 #define _H_MYSQLDA_API_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +10,10 @@ extern "C" {
 #include <arpa/inet.h>
 
 #include "mysql.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_index );
 

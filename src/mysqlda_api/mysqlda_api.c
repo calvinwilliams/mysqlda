@@ -63,8 +63,11 @@ int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_in
 	}
 	
 	/* 解析响应报文 */
-	p = (uint32_t*)(comm_buffer+3) ;
-	(*p_index) = (int)( ntohl(*p) ) ;
+	if( p_index )
+	{
+		p = (uint32_t*)(comm_buffer+3) ;
+		(*p_index) = (int)( ntohl(*p) ) ;
+	}
 	
 	return 0;
 }
