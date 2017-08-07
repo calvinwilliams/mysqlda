@@ -20,7 +20,7 @@ int main( int argc , char *argv[] )
 	int		end_seqno ;
 	int		seqno ;
 	char		seqno_buffer[ 20 + 1 ] ;
-	int		index ;
+	char		instance[ 20 + 1 ] ;
 	int		nret = 0 ;
 	
 	if( argc != 1 + 2 )
@@ -54,7 +54,8 @@ int main( int argc , char *argv[] )
 	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
 	{
 		snprintf( seqno_buffer , sizeof(seqno_buffer) , "%d" , seqno );
-		nret = mysql_select_library( conn , seqno_buffer , & index ) ;
+		memset( instance , 0x00 , sizeof(instance) );
+		nret = mysql_select_library( conn , seqno_buffer , instance , sizeof(instance) ) ;
 		if( nret )
 		{
 			printf( "mysql_select_library failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
@@ -63,7 +64,7 @@ int main( int argc , char *argv[] )
 		}
 		else
 		{
-			printf( "mysql_select_library ok , seqno_buffer[%s] index[%d]\n" , seqno_buffer , index );
+			printf( "mysql_select_library ok , seqno_buffer[%s] instance[%s]\n" , seqno_buffer , instance );
 		}
 	}
 	

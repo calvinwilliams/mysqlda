@@ -50,12 +50,18 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	int			forward_no ;
 	struct ForwardPower	*p_forward_power = NULL ;
 	int			serial_range_begin ;
+	
+	FILE			*fp = NULL ;
+	struct ForwardLibrary	forward_library ;
+	struct ForwardPower	forward_power ;
+	struct ForwardLibrary	*p_forward_library = NULL ;
+	
 	int			nret = 0 ;
 	
 	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
 	if( file_buffer == NULL )
 	{
-		printf( "*** ERROR : file[%s] not found , errno[%d]\n" , p_env->config_filename , errno );
+		printf( "*** ERROR : config file[%s] not found , errno[%d]\n" , p_env->config_filename , errno );
 		return -1;
 	}
 	
@@ -125,6 +131,47 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	
 	printf( "listen_ip[%s] listen_port[%d]\n" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port );
 	printf( "user[%s] pass[%s] db[%s]\n" , p_env->user , p_env->pass , p_env->db );
+	
+	fp = fopen( p_env->save_filename , "r" ) ;
+	if( fp )
+	{
+		while(1)
+		{
+			memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
+			memset( & forward_power , 0x00 , sizeof(struct ForwardPower) );
+			if( fscanf( fp , "%s%s\n" , forward_library.library , forward_power.instance ) == EOF )
+				break;
+			if( forward_library.library[0] == '\0' || forward_power.instance[0] == '\0' )
+				break;
+			
+			p_forward_library = (struct ForwardLibrary *)malloc( sizeof(struct ForwardLibrary) ) ;
+			if( p_forward_library == NULL )
+			{
+				printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
+				fclose( fp );
+				return -15;
+			}
+			memcpy( p_forward_library , & forward_library , sizeof(struct ForwardLibrary) );
+			
+			p_forward_library->p_forward_power = QueryForwardInstanceTreeNode( p_env , & forward_power ) ;
+			if( p_forward_library->p_forward_power == NULL )
+			{
+				printf( "*** ERROR : instance[%s] not found in config\n" , forward_power.instance );
+				fclose( fp );
+				return -16;
+			}
+			
+			nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
+			if( nret )
+			{
+				printf( "*** ERROR : LinkForwardLibraryTreeNode[%s][%s] failed[%d]\n" , forward_library.library , forward_power.instance , nret );
+				fclose( fp );
+				return -17;
+			}
+		}
+		
+		fclose( fp );
+	}
 	
 	return 0;
 }

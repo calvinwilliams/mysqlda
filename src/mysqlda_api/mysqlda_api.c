@@ -1,6 +1,6 @@
 #include "mysqlda_api.h"
 
-int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_index )
+int STDCALL mysql_select_library( MYSQL *mysql , const char *library , char *instance , int instance_bufsize )
 {
 	char		comm_buffer[ 4096 + 1 ] ;
 	int		need_send_len ;
@@ -8,7 +8,6 @@ int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_in
 	int		sended_len ;
 	int		comm_body_len ;
 	int		received_len ;
-	uint32_t	*p = NULL ;
 	
 	/* 组织请求报文 */
 	memset( comm_buffer , 0x00 , sizeof(comm_buffer) );
@@ -63,10 +62,9 @@ int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_in
 	}
 	
 	/* 解析响应报文 */
-	if( p_index )
+	if( instance )
 	{
-		p = (uint32_t*)(comm_buffer+3) ;
-		(*p_index) = (int)( ntohl(*p) ) ;
+		snprintf( instance , instance_bufsize , "%.*s" , comm_body_len-1 , comm_buffer+3+1 );
 	}
 	
 	return 0;

@@ -113,10 +113,6 @@ struct ForwardPower
 	
 	unsigned long		serial_range_begin ;
 	struct rb_node		forward_serial_range_rbnode ;
-	
-	/*
-	struct rb_root		forward_session_rbtree ;
-	*/
 } ;
 
 /* 服务端转发运行时 结构 */
@@ -127,8 +123,6 @@ struct ForwardLibrary
 	char			library[ MAXLEN_LIBRARY + 1 ] ;
 	struct rb_node		forward_library_rbnode ;
 	
-	unsigned long		hash_val ;
-	
 	struct ForwardPower	*p_forward_power ;
 } ;
 
@@ -136,6 +130,7 @@ struct ForwardLibrary
 struct MysqldaEnvironment
 {
 	char			*config_filename ;
+	char			*save_filename ;
 	int			no_daemon_flag ;
 	char			*action ;
 	

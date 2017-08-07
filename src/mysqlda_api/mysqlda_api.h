@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-int STDCALL mysql_select_library( MYSQL *mysql , const char *library , int *p_index );
+int STDCALL mysql_select_library( MYSQL *mysql , const char *library , char *instance , int instance_bufsize );
 
 #ifdef __cplusplus
 }

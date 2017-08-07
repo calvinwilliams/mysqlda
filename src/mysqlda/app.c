@@ -232,7 +232,8 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	struct ForwardLibrary	forward_library ;
 	struct ForwardLibrary	*p_forward_library = NULL ;
 	
-	uint32_t		*p = NULL ;
+	int			fd ;
+	
 	int			len ;
 	
 	int			nret = 0 ;
@@ -329,7 +330,6 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		memset( p_forward_library , 0x00 , sizeof(struct ForwardLibrary) );
 		
 		strcpy( p_forward_library->library , library );
-		p_forward_library->hash_val = hash_val ;
 		p_forward_library->p_forward_power = p_forward_session->p_forward_power ;
 		
 		nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
@@ -343,15 +343,31 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		{
 			INFOLOG( "LinkForwardLibraryTreeNode ok , library[%s] instance[%s]" , p_forward_library->library , p_forward_library->p_forward_power->instance );
 		}
+		
+		fd = open( p_env->save_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+		if( fd == -1 )
+		{
+			ERRORLOG( "open[%s] failed[%d]" , p_env->save_filename , nret );
+			free( p_forward_library );
+			return 1;
+		}
+		
+		write( fd , p_forward_library->library , strlen(p_forward_library->library) );
+		write( fd , " " , 1 );
+		write( fd , p_forward_library->p_forward_power->instance , strlen(p_forward_library->p_forward_power->instance) );
+		write( fd , "\n" , 1 );
+		
+		close( fd );
 	}
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
 	
+	/* 序号 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
+	
 	/* 存储索引 */
-	p = (uint32*)(p_accepted_session->comm_buffer+3) ;
-	(*p) = htonl(p_forward_library->hash_val) ;
-	p_accepted_session->fill_len += sizeof(uint32_t) ;
+	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library->p_forward_power->instance ) ; p_accepted_session->fill_len += len+1 ;
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;
