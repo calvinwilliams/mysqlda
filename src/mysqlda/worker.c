@@ -1,16 +1,25 @@
 #include "mysqlda_in.h"
 
+static void sig_interrupt( int sig_no )
+{
+	return;
+}
+
 static int _worker( struct MysqldaEnvironment *p_env )
 {
 	struct AcceptedSession	*p_accepted_session = NULL ;
 	struct ForwardPower	*p_forward_power = NULL ;
 	MYSQL			*mysql_connection = NULL ;
+	struct ForwardServer	*p_forward_server = NULL ;
 	struct ForwardSession	*p_forward_session = NULL ;
 	struct epoll_event	event ;
 	struct epoll_event	events[ 1024 ] ;
 	int			epoll_nfds ;
 	int			i ;
 	struct epoll_event	*p_event = NULL ;
+	
+	struct sigaction	act ;
+	
 	int			nret = 0 ;
 	
 	/* 创建套接字 */
@@ -95,20 +104,33 @@ static int _worker( struct MysqldaEnvironment *p_env )
 			return -1;
 		}
 		
-		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
-		if( mysql_real_connect( mysql_connection , p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_power->netaddr.port , NULL , 0 ) == NULL )
+		p_forward_server = lk_list_first_entry( & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
+		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		if( mysql_real_connect( mysql_connection , p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_server->netaddr.port , NULL , 0 ) == NULL )
 		{
-			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
+			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
+			mysql_close( mysql_connection );
 			return -2;
 		}
 		else
 		{
-			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		}
 		
-		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_power->netaddr.ip , p_forward_power->netaddr.port );
+		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		mysql_close( mysql_connection );
 	}
+	
+	/* 设置信号灯 */
+	act.sa_handler = sig_interrupt ;
+	sigemptyset( & (act.sa_mask) );
+	act.sa_flags = 0 ;
+	sigaction( SIGTERM , & act , NULL );
+	sigaction( SIGINT , & act , NULL );
+	signal( SIGCLD , SIG_DFL );
+	signal( SIGCHLD , SIG_DFL );
+	signal( SIGPIPE , SIG_IGN );
+	signal( SIGHUP , SIG_IGN );
 	
 	while(1)
 	{
@@ -121,7 +143,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 			if( errno == EINTR )
 			{
 				INFOLOG( "epoll_wait #%d# interrupted" , p_env->epoll_fd );
-				continue;
+				break;
 			}
 			else
 			{

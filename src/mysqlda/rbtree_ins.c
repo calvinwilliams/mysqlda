@@ -42,5 +42,5 @@ DESTROY_RBTREE( DestroyForwardSerialRangeTree , struct MysqldaEnvironment , forw
 LINK_RBTREENODE_STRING( LinkForwardLibraryTreeNode , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode , library )
 QUERY_RBTREENODE_STRING( QueryForwardLibraryTreeNode , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode , library )
 UNLINK_RBTREENODE( UnlinkForwardLibraryTreeNode , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode )
-DESTROY_RBTREE( DestroyForwardLibraryTree , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode , NULL )
+DESTROY_RBTREE( DestroyForwardLibraryTree , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
 

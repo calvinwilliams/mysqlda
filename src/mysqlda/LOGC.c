@@ -34,6 +34,8 @@
 TLS char	g_log_pathfilename[ MAXLEN_FILENAME + 1 ] = "" ;
 TLS int		g_log_level = LOGLEVEL_INFO ;
 TLS pid_t	g_pid ;
+TLS struct timeval	g_last_tv = { 0 , 0 } ;
+TLS char		g_last_date_time_buf[ 10+1+8 + 1 ] = "" ;
 
 const char log_level_itoa[][6] = { "" , "DEBUG" , "INFO" , "WARN" , "ERROR" , "FATAL" } ;
 
@@ -74,8 +76,6 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	
 	struct timeval		tv ;
 	struct tm		stime ;
-	static struct timeval	last_tv = { 0 , 0 } ;
-	static char		last_time_buf[ 10+1+8 + 1 ] = "" ;
 	
 	char		log_buffer[ 1024 + 1 ] ;
 	char		*log_bufptr = NULL ;
@@ -95,11 +95,11 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	/* ÃÓ≥‰––»’÷æ */
 #if ( defined __linux__ ) || ( defined __unix ) || ( defined _AIX )
 	gettimeofday( & tv , NULL );
-	if( tv.tv_sec != last_tv.tv_sec )
+	if( tv.tv_sec != g_last_tv.tv_sec )
 	{
 		localtime_r( &(tv.tv_sec) , & stime );
-		strftime( last_time_buf , sizeof(last_time_buf) , "%Y-%m-%d %H:%M:%S" , & stime ) ;
-		last_tv.tv_sec = tv.tv_sec ;
+		strftime( g_last_date_time_buf , sizeof(g_last_date_time_buf) , "%Y-%m-%d %H:%M:%S" , & stime ) ;
+		g_last_tv.tv_sec = tv.tv_sec ;
 	}
 #elif ( defined _WIN32 )
 	{
@@ -120,7 +120,7 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	log_buflen = 0 ;
 	log_buf_remain_len = sizeof(log_buffer) - 1 ;
 	
-	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | %d:%s:%ld | " , last_time_buf , (long)(tv.tv_usec) , log_level_itoa[log_level] , g_pid , p_c_filename , c_fileline ) ;
+	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | %d:%s:%ld | " , g_last_date_time_buf , (long)(tv.tv_usec) , log_level_itoa[log_level] , g_pid , p_c_filename , c_fileline ) ;
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	len = VSNPRINTF( log_bufptr , log_buf_remain_len , format , valist );
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
@@ -461,4 +461,14 @@ int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , 
 }
 
 #endif
+
+struct timeval *GetLogLastTimestampPtr()
+{
+	return &g_last_tv;
+}
+
+char *GetLogLastDateTimeStringPtr()
+{
+	return g_last_date_time_buf;
+}
 

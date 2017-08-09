@@ -107,12 +107,17 @@ typedef struct
 	struct
 	{
 		char	instance[ 20 + 1 ] ;
-		char	ip[ 20 + 1 ] ;
-		int	port ;
 		unsigned int	power ;
-	} forward [ 100 ] ;
-	int	_forward_count ;
-	int	_forward_size ;
+		struct
+		{
+			char	ip[ 20 + 1 ] ;
+			int	port ;
+		} forward [ 8 ] ;
+		int	_forward_count ;
+		int	_forward_size ;
+	} forwards [ 1000 ] ;
+	int	_forwards_count ;
+	int	_forwards_size ;
 } mysqlda_conf ;
 
 _WINDLL_FUNC int DSCINIT_mysqlda_conf( mysqlda_conf *pst );

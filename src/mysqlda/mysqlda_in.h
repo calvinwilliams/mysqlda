@@ -14,6 +14,7 @@
 #include <sys/epoll.h>
 
 #include "LOGC.h"
+#include "lk_list.h"
 #include "rbtree.h"
 #include "network.h"
 #include "ctl_epoll.h"
@@ -43,7 +44,7 @@ extern "C" {
 /* 通讯基础信息结构 */
 struct NetAddress
 {
-	char			ip[ sizeof(((mysqlda_conf*)0)->forward[0].ip) + 1 ] ;
+	char			ip[ sizeof(((mysqlda_conf*)0)->forwards[0].forward[0].ip) + 1 ] ;
 	int			port ;
 	int			sock ;
 	struct sockaddr_in	addr ;
@@ -76,6 +77,7 @@ struct AcceptedSession
 	unsigned char		type ;
 	int			status ;
 	
+	struct ForwardServer	*p_forward_server ;
 	struct NetAddress	netaddr ;
 	
 	char			*comm_buffer ;
@@ -95,6 +97,7 @@ struct ForwardSession
 	char			type ;
 	
 	struct ForwardPower	*p_forward_power ;
+	struct ForwardServer	*p_forward_server ;
 	
 	MYSQL			*mysql_connection ;
 	struct AcceptedSession	*p_pair_accepted_session ;
@@ -103,12 +106,20 @@ struct ForwardSession
 } ;
 
 /* 服务端转发权重 结构 */
+struct ForwardServer
+{
+	struct NetAddress	netaddr ;
+	
+	struct lk_list_head	forward_server_listnode ;
+} ;
+
 struct ForwardPower
 {
-	char			instance[ sizeof(((mysqlda_conf*)0)->forward[0].instance) ] ;
+	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ;
 	struct rb_node		forward_instance_rbnode ;
 	
-	struct NetAddress	netaddr ;
+	struct lk_list_head	forward_server_list ;
+	
 	unsigned int		power ;
 	
 	unsigned long		serial_range_begin ;
@@ -168,6 +179,7 @@ unsigned long CalcHash( char *str , int str_len );
 
 int InitConfigFile( struct MysqldaEnvironment *p_env );
 int LoadConfig( struct MysqldaEnvironment *p_env );
+void UnloadConfig( struct MysqldaEnvironment *p_env );
 
 /*
  * worker

@@ -246,7 +246,7 @@ int OnClosingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedS
 		if( p_forward_session->mysql_connection )
 		{
 			DeleteForwardSessionEpoll( p_env , p_forward_session );
-			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
 			mysql_close( p_forward_session->mysql_connection );
 			p_forward_session->mysql_connection = NULL ;
 		}
@@ -359,7 +359,7 @@ int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 	if( p_forward_session->mysql_connection )
 	{
 		DeleteForwardSessionEpoll( p_env , p_forward_session );
-		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
 		mysql_close( p_forward_session->mysql_connection );
 		p_forward_session->mysql_connection = NULL ;
 	}

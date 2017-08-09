@@ -229,10 +229,12 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	struct ForwardSession	*p_forward_session = NULL ;
 	unsigned long		hash_val = 0 ;
 	struct ForwardPower	*p_forward_power = NULL ;
+	struct ForwardServer	*p_first_forward_server = NULL ;
 	struct ForwardLibrary	forward_library ;
 	struct ForwardLibrary	*p_forward_library = NULL ;
 	
 	int			fd ;
+	char			*p_date_time_string = NULL ;
 	
 	int			len ;
 	
@@ -294,7 +296,7 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		if( p_forward_session->mysql_connection )
 		{
 			DeleteForwardSessionEpoll( p_env , p_forward_session );
-			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port );
+			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
 			mysql_close( p_forward_session->mysql_connection );
 		}
 		
@@ -305,15 +307,29 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 			return 1;
 		}
 		
-		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
-		if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_power->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_power->netaddr.port , NULL , 0 ) == NULL )
+		p_forward_session->p_forward_server = lk_list_first_entry( & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
+		p_first_forward_server = p_forward_session->p_forward_server ;
+		while(1)
 		{
-			ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
-			return 1;
-		}
-		else
-		{
-			INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_power->netaddr.ip , p_forward_session->p_forward_power->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_server->netaddr.port , NULL , 0 ) == NULL )
+			{
+				ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_power->instance , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
+			}
+			else
+			{
+				INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_power->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+				break;
+			}
+			
+			lk_list_move_tail( & (p_forward_session->p_forward_server->forward_server_listnode) , & (p_forward_power->forward_server_list) );
+			
+			p_forward_session->p_forward_server = lk_list_first_entry( & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
+			if( p_forward_session->p_forward_server == p_first_forward_server )
+			{
+				ERRORLOG( "all mysql_real_connect failed" );
+				return 1;
+			}
 		}
 		
 		AddForwardSessionEpollInput( p_env , p_forward_session );
@@ -352,6 +368,9 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 			return 1;
 		}
 		
+		p_date_time_string = GetLogLastDateTimeStringPtr() ;
+		write( fd , p_date_time_string , strlen(p_date_time_string) );
+		write( fd , " " , 1 );
 		write( fd , p_forward_library->library , strlen(p_forward_library->library) );
 		write( fd , " " , 1 );
 		write( fd , p_forward_library->p_forward_power->instance , strlen(p_forward_library->p_forward_power->instance) );

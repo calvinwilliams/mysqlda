@@ -13,12 +13,16 @@ STRUCT	mysqlda_conf
 		STRING 40	db
 	}
 	
-	STRUCT	forward	ARRAY	100
+	STRUCT	forwards	ARRAY	1000
 	{
 		STRING 20	instance
-		STRING 20	ip
-		INT 4		port
 		UINT 4		power
+		
+		STRUCT	forward	ARRAY	8
+		{
+			STRING 20	ip
+			INT 4		port
+		}
 	}
 }
 

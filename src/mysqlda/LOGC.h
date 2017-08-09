@@ -200,6 +200,9 @@ int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , 
 #define info_hex_log		InfoHexLog
 #define debug_hex_log		DebugHexLog
 
+struct timeval *GetLogLastTimestampPtr();
+char *GetLogLastDateTimeStringPtr();
+
 #ifdef __cplusplus
 }
 #endif

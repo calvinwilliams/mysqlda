@@ -21,13 +21,17 @@ int FUNCNAME_DSCLOG_mysqlda_conf( mysqlda_conf *pst )
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.user[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.user );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.pass[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.pass );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.db[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.db );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf._forward_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->_forward_count );
-		for( index[1] = 0 ; index[1] < pst->_forward_count ; index[1]++ )
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf._forwards_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->_forwards_count );
+		for( index[1] = 0 ; index[1] < pst->_forwards_count ; index[1]++ )
 		{
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].instance[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].instance );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].ip[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].ip );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].port[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].port );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forward[index[1]].power[%u]" NEWLINE_DSCLOG_mysqlda_conf , pst->forward[index[1]].power );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].instance[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].instance );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].power[%u]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].power );
+			PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]]._forward_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]]._forward_count );
+			for( index[2] = 0 ; index[2] < pst->forwards[index[1]]._forward_count ; index[2]++ )
+			{
+			PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].forward[index[2]].ip[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].forward[index[2]].ip );
+			PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].forward[index[2]].port[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].forward[index[2]].port );
+			}
 		}
 	return 0;
 }

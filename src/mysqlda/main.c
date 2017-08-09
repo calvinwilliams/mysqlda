@@ -71,16 +71,23 @@ int main( int argc , char *argv[] )
 	{
 		nret = LoadConfig( p_env ) ;
 		if( nret )
+		{
+			UnloadConfig( p_env );
 			return -nret;
+		}
 		
 		if( p_env->no_daemon_flag )
 		{
-			return -worker( p_env );
+			nret = worker( p_env ) ;
 		}
 		else
 		{
-			return -BindDaemonServer( & worker , (void*)p_env , 1 );
+			nret = BindDaemonServer( & worker , (void*)p_env , 1 ) ;
 		}
+		
+		UnloadConfig( p_env );
+		
+		return -nret;
 	}
 }
 
