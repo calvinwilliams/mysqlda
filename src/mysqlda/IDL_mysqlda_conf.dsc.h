@@ -107,7 +107,6 @@ typedef struct
 	struct
 	{
 		char	instance[ 20 + 1 ] ;
-		unsigned int	power ;
 		struct
 		{
 			char	ip[ 20 + 1 ] ;

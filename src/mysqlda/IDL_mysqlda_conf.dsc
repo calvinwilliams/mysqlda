@@ -16,7 +16,6 @@ STRUCT	mysqlda_conf
 	STRUCT	forwards	ARRAY	1000
 	{
 		STRING 20	instance
-		UINT 4		power
 		
 		STRUCT	forward	ARRAY	8
 		{

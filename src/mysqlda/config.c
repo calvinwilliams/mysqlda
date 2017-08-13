@@ -17,7 +17,6 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	strcpy( conf.auth.db , "calvindb" );
 	
 	strcpy( conf.forwards[0].instance , "mysqlda1" );
-	conf.forwards[0].power = 1 ;
 	strcpy( conf.forwards[0].forward[0].ip , "localhost" );
 	conf.forwards[0].forward[0].port = 13306 ;
 	conf.forwards[0]._forward_count = 1 ;
@@ -41,6 +40,29 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	free( file_buffer );
 	
 	return 0;
+}
+
+void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardPower *p_this_forward_power )
+{
+	struct ForwardPower	*p_forward_power = NULL ;
+	int			serial_range_begin ;
+	
+	serial_range_begin = 0 ;
+	while(1)
+	{
+		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
+		if( p_forward_power == NULL )
+			break;
+		
+		p_forward_power->serial_range_begin = serial_range_begin ;
+		if( p_forward_power != p_this_forward_power )
+			p_forward_power->power++;
+		serial_range_begin += p_forward_power->power ;
+	}
+	
+	p_env->total_power = serial_range_begin ;
+	
+	return;
 }
 
 int LoadConfig( struct MysqldaEnvironment *p_env )
@@ -106,12 +128,8 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		memset( p_forward_power , 0x00 , sizeof(struct ForwardPower) );
 		
 		strcpy( p_forward_power->instance , p_conf->forwards[forwards_no].instance );
-		p_forward_power->power = p_conf->forwards[forwards_no].power ;
-		if( p_forward_power->power == 0 )
-			p_forward_power->power = 1 ;
+		p_forward_power->power = 1 ;
 		p_forward_power->serial_range_begin = serial_range_begin ;
-		
-		printf( "[%s] [%u] [%ld]\n" , p_forward_power->instance , p_forward_power->power , p_forward_power->serial_range_begin );
 		
 		if( p_conf->forwards[forwards_no]._forward_count <= 0 )
 		{
@@ -132,8 +150,6 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			
 			strcpy( p_forward_server->netaddr.ip , p_conf->forwards[forwards_no].forward[forward_no].ip );
 			p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
-			
-			printf( "\t[%s][%d]\n" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 			
 			lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_power->forward_server_list) );
 		}
@@ -156,13 +172,6 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	}
 	
 	p_env->total_power = serial_range_begin ;
-	if( p_env->total_power <= 0 )
-	{
-		printf( "*** ERROR : no mysql instance valid\n" );
-		return -1;
-	}
-	
-	printf( "total_power[%ld]\n" , p_env->total_power );
 	
 	strcpy( p_env->listen_session.netaddr.ip , p_conf->server.listen_ip );
 	p_env->listen_session.netaddr.port = p_conf->server.listen_port ;
@@ -210,12 +219,31 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 				fclose( fp );
 				return -1;
 			}
+			
+			AddForwardPowerTreeNodePower( p_env , p_forward_library->p_forward_power );
 		}
 		
 		fclose( fp );
 	}
 	
 	printf( "ok\n" );
+	
+	p_forward_power = NULL ;
+	while(1)
+	{
+		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
+		if( p_forward_power == NULL )
+			break;
+		
+		printf( "instance[%s] serial_range_begin[%lu] power[%lu]\n" , p_forward_power->instance , p_forward_power->serial_range_begin , p_forward_power->power );
+		
+		lk_list_for_each_entry( p_forward_server , & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode )
+		{
+			printf( "\tip[%s] port[%d]\n" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+		}
+	}
+	
+	printf( "total_power[%ld]\n" , p_env->total_power );
 	
 	return 0;
 }

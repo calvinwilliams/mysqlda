@@ -121,7 +121,7 @@ struct ForwardPower
 	
 	struct lk_list_head	forward_server_list ;
 	
-	unsigned int		power ;
+	unsigned long		power ;
 	
 	unsigned long		serial_range_begin ;
 	struct rb_node		forward_serial_range_rbnode ;
@@ -179,6 +179,9 @@ unsigned long CalcHash( char *str , int str_len );
  */
 
 int InitConfigFile( struct MysqldaEnvironment *p_env );
+
+void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardPower *p_this_forward_power );
+
 int LoadConfig( struct MysqldaEnvironment *p_env );
 void UnloadConfig( struct MysqldaEnvironment *p_env );
 
