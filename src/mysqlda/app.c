@@ -377,6 +377,20 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		write( fd , "\n" , 1 );
 		
 		close( fd );
+		
+		AddForwardPowerTreeNodePower( p_env , p_forward_power );
+		
+		p_forward_power = NULL ;
+		while(1)
+		{
+			p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
+			if( p_forward_power == NULL )
+				break;
+			
+			INFOLOG( "instance[%s] serial_range_begin[%lu] power[%lu]\n" , p_forward_power->instance , p_forward_power->serial_range_begin , p_forward_power->power );
+		}
+		
+		INFOLOG( "total_power[%ld]" , p_env->total_power );
 	}
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */

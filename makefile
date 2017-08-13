@@ -8,6 +8,7 @@
 ###### 子目录配置区
 DIROBJS		= \
 			src \
+			shbin \
 			test \
 
 ###### 加载mktpl模板库

@@ -69,23 +69,14 @@ int main( int argc , char *argv[] )
 	}
 	else if( STRCMP( p_env->action , == , "start" ) )
 	{
-		nret = LoadConfig( p_env ) ;
-		if( nret )
-		{
-			UnloadConfig( p_env );
-			return -nret;
-		}
-		
 		if( p_env->no_daemon_flag )
 		{
 			nret = worker( p_env ) ;
 		}
 		else
 		{
-			nret = BindDaemonServer( & worker , (void*)p_env , 1 ) ;
+			nret = BindDaemonServer( & monitor , (void*)p_env , 1 ) ;
 		}
-		
-		UnloadConfig( p_env );
 		
 		return -nret;
 	}

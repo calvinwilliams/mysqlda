@@ -30,6 +30,7 @@ c_FILE_CLEAN	=	$(c_FILE_o) $(c_FILE2_o) $(c_FILE3_o) $(c_FILE4_o) $(c_FILE5_o)
 	$(CC) $(CFLAGS) -c $<
 
 c_FILE		=	\
+			lk_list.c \
 			rbtree.c \
 			LOGC.c \
 			fasterjson.c \
@@ -38,6 +39,7 @@ c_FILE		=	\
 			IDL_mysqlda_conf.dsc.c \
 			main.c \
 			config.c \
+			monitor.c \
 			worker.c \
 			comm.c \
 			app.c \

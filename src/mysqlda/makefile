@@ -17,6 +17,7 @@ c_FILE		=	\
 			IDL_mysqlda_conf.dsc.c \
 			main.c \
 			config.c \
+			monitor.c \
 			worker.c \
 			comm.c \
 			app.c \

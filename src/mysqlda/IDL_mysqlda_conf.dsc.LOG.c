@@ -25,7 +25,6 @@ int FUNCNAME_DSCLOG_mysqlda_conf( mysqlda_conf *pst )
 		for( index[1] = 0 ; index[1] < pst->_forwards_count ; index[1]++ )
 		{
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].instance[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].instance );
-		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]].power[%u]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]].power );
 			PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.forwards[index[1]]._forward_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->forwards[index[1]]._forward_count );
 			for( index[2] = 0 ; index[2] < pst->forwards[index[1]]._forward_count ; index[2]++ )
 			{

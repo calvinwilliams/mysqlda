@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/wait.h>
 
 #include "LOGC.h"
 #include "lk_list.h"
@@ -56,6 +57,7 @@ struct ListenSession
 	struct NetAddress	netaddr ;
 } ;
 
+#define SESSIONTYPE_ALIVEPIPESESSION	0
 #define SESSIONTYPE_ACCEPTEDSESSION	1
 #define SESSIONTYPE_FORWARDSESSION	2
 
@@ -67,6 +69,14 @@ struct ListenSession
 #define SESSIONSTATUS_FORWARDING							7
 
 #define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
+
+/* 存活管道会话 结构 */
+struct AlivePipeSession
+{
+	unsigned char		type ;
+	
+	int			alive_pipe[ 2 ] ;
+} ;
 
 /* 客户端连接会话 结构 */
 #define MAXLEN_ACCEPTED_SESSION_COMM_BUFFER	(3+1+(2<<24))
@@ -105,7 +115,7 @@ struct ForwardSession
 	struct rb_node		forward_session_rbnode ;
 } ;
 
-/* 服务端转发权重 结构 */
+/* 服务端转发服务器信息 结构 */
 struct ForwardServer
 {
 	struct NetAddress	netaddr ;
@@ -113,6 +123,7 @@ struct ForwardServer
 	struct lk_list_head	forward_server_listnode ;
 } ;
 
+/* 服务端转发库权重 结构 */
 struct ForwardPower
 {
 	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ;
@@ -120,13 +131,13 @@ struct ForwardPower
 	
 	struct lk_list_head	forward_server_list ;
 	
-	unsigned int		power ;
+	unsigned long		power ;
 	
 	unsigned long		serial_range_begin ;
 	struct rb_node		forward_serial_range_rbnode ;
 } ;
 
-/* 服务端转发运行时 结构 */
+/* 服务端转发规则历史 结构 */
 #define MAXLEN_LIBRARY		64
 
 struct ForwardLibrary
@@ -153,6 +164,7 @@ struct MysqldaEnvironment
 	struct rb_root		forward_instance_rbtree ;
 	unsigned long		total_power ;
 	
+	struct AlivePipeSession	alive_pipe_session ;
 	struct ListenSession	listen_session ;
 	
 	int			epoll_fd ;
@@ -178,8 +190,17 @@ unsigned long CalcHash( char *str , int str_len );
  */
 
 int InitConfigFile( struct MysqldaEnvironment *p_env );
+
+void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardPower *p_this_forward_power );
+
 int LoadConfig( struct MysqldaEnvironment *p_env );
 void UnloadConfig( struct MysqldaEnvironment *p_env );
+
+/*
+ * monitor
+ */
+
+int monitor( void *pv );
 
 /*
  * worker
