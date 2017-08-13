@@ -105,7 +105,7 @@ struct ForwardSession
 	struct rb_node		forward_session_rbnode ;
 } ;
 
-/* 服务端转发权重 结构 */
+/* 服务端转发服务器信息 结构 */
 struct ForwardServer
 {
 	struct NetAddress	netaddr ;
@@ -113,6 +113,7 @@ struct ForwardServer
 	struct lk_list_head	forward_server_listnode ;
 } ;
 
+/* 服务端转发库权重 结构 */
 struct ForwardPower
 {
 	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ;
@@ -126,7 +127,7 @@ struct ForwardPower
 	struct rb_node		forward_serial_range_rbnode ;
 } ;
 
-/* 服务端转发运行时 结构 */
+/* 服务端转发规则历史 结构 */
 #define MAXLEN_LIBRARY		64
 
 struct ForwardLibrary
