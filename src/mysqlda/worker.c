@@ -1,10 +1,5 @@
 #include "mysqlda_in.h"
 
-static void sig_interrupt( int sig_no )
-{
-	return;
-}
-
 static int _worker( struct MysqldaEnvironment *p_env )
 {
 	struct AcceptedSession	*p_accepted_session = NULL ;
@@ -18,9 +13,38 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	int			i ;
 	struct epoll_event	*p_event = NULL ;
 	
-	struct sigaction	act ;
-	
 	int			nret = 0 ;
+	
+	/* 设置信号灯 */
+	signal( SIGTERM , SIG_IGN );
+	signal( SIGINT , SIG_IGN );
+	
+	/* 创建epoll池 */
+	p_env->epoll_fd = epoll_create( 1024 ) ;
+	if( p_env->epoll_fd == -1 )
+	{
+		ERRORLOG( "epoll_create failed , errno[%d]" , errno );
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "epoll_create ok , #%d#" , p_env->epoll_fd );
+	}
+	
+	/* 加入存活管道可读事件到epoll */
+	memset( & event , 0x00 , sizeof(struct epoll_event) );
+	event.events = EPOLLIN | EPOLLERR ;
+	event.data.ptr = & (p_env->alive_pipe_session) ;
+	nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_env->alive_pipe_session.alive_pipe[0] , & event ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "epoll_ctl #%d# add alive_pipe_session failed , errno[%d]" , p_env->epoll_fd , errno );
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "epoll_ctl #%d# add alive_pipe_session #%d# ok" , p_env->epoll_fd , p_env->alive_pipe_session.alive_pipe[0] );
+	}
 	
 	/* 创建套接字 */
 	p_env->listen_session.netaddr.sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
@@ -61,18 +85,6 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	else
 	{
 		INFOLOG( "listen[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
-	}
-	
-	/* 创建epoll池 */
-	p_env->epoll_fd = epoll_create( 1024 ) ;
-	if( p_env->epoll_fd == -1 )
-	{
-		ERRORLOG( "epoll_create failed , errno[%d]" , errno );
-		return -1;
-	}
-	else
-	{
-		INFOLOG( "epoll_create ok , #%d#" , p_env->epoll_fd );
 	}
 	
 	/* 加入侦听可读事件到epoll */
@@ -120,17 +132,6 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		mysql_close( mysql_connection );
 	}
-	
-	/* 设置信号灯 */
-	act.sa_handler = sig_interrupt ;
-	sigemptyset( & (act.sa_mask) );
-	act.sa_flags = 0 ;
-	sigaction( SIGTERM , & act , NULL );
-	sigaction( SIGINT , & act , NULL );
-	signal( SIGCLD , SIG_DFL );
-	signal( SIGCHLD , SIG_DFL );
-	signal( SIGPIPE , SIG_IGN );
-	signal( SIGHUP , SIG_IGN );
 	
 	while(1)
 	{
@@ -193,6 +194,11 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					FatalLog( __FILE__ , __LINE__ , "Unknow listen session event[0x%X]" , p_event->events );
 					return -1;
 				}
+			}
+			/* 存活管道事件 */
+			else if( p_event->data.ptr == & (p_env->alive_pipe_session) )
+			{
+				break;
 			}
 			/* 其它事件，即客户端连接会话事件 */
 			else
@@ -320,6 +326,10 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				}
 			}
 		}
+		if( i < epoll_nfds && p_event->data.ptr == & (p_env->alive_pipe_session) )
+		{
+			break;
+		}
 		
 		/* 处理超时 */
 		/* ... */
@@ -336,9 +346,21 @@ int worker( void *pv )
 {
 	struct MysqldaEnvironment	*p_env = (struct MysqldaEnvironment *) pv ;
 	
-	SetLogFile( "%s/log/mysqlda.log" , getenv("HOME") );
-	SetLogLevel( LOGLEVEL_DEBUG );
+	int				nret = 0 ;
 	
-	return _worker( p_env );
+	nret = LoadConfig( p_env ) ;
+	if( nret )
+	{
+		UnloadConfig( p_env ) ;
+		return 1;
+	}
+	
+	nret = _worker( p_env ) ;
+	
+	UnloadConfig( p_env );
+	
+	INFOLOG( "worker exit ..." );
+	
+	return -nret;
 }
 

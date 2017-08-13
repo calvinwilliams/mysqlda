@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/wait.h>
 
 #include "LOGC.h"
 #include "lk_list.h"
@@ -56,6 +57,7 @@ struct ListenSession
 	struct NetAddress	netaddr ;
 } ;
 
+#define SESSIONTYPE_ALIVEPIPESESSION	0
 #define SESSIONTYPE_ACCEPTEDSESSION	1
 #define SESSIONTYPE_FORWARDSESSION	2
 
@@ -67,6 +69,14 @@ struct ListenSession
 #define SESSIONSTATUS_FORWARDING							7
 
 #define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
+
+/* 存活管道会话 结构 */
+struct AlivePipeSession
+{
+	unsigned char		type ;
+	
+	int			alive_pipe[ 2 ] ;
+} ;
 
 /* 客户端连接会话 结构 */
 #define MAXLEN_ACCEPTED_SESSION_COMM_BUFFER	(3+1+(2<<24))
@@ -154,6 +164,7 @@ struct MysqldaEnvironment
 	struct rb_root		forward_instance_rbtree ;
 	unsigned long		total_power ;
 	
+	struct AlivePipeSession	alive_pipe_session ;
 	struct ListenSession	listen_session ;
 	
 	int			epoll_fd ;
@@ -184,6 +195,12 @@ void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct For
 
 int LoadConfig( struct MysqldaEnvironment *p_env );
 void UnloadConfig( struct MysqldaEnvironment *p_env );
+
+/*
+ * monitor
+ */
+
+int monitor( void *pv );
 
 /*
  * worker
