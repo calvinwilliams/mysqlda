@@ -1,12 +1,17 @@
 #include "mysqlda_in.h"
 
 static int	g_exit_flag = 0 ;
+static int	g_reload_flag = 0 ;
 
 static void SignalProcess( int sig_no )
 {
 	if( sig_no == SIGTERM || sig_no == SIGINT )
 	{
 		g_exit_flag = 1 ;
+	}
+	else if( sig_no == SIGUSR1 )
+	{
+		g_reload_flag = 1 ;
 	}
 	
 	return;
@@ -27,6 +32,7 @@ static int _monitor( struct MysqldaEnvironment *p_env )
 	act.sa_flags = 0 ;
 	sigaction( SIGTERM , & act , NULL );
 	sigaction( SIGINT , & act , NULL );
+	sigaction( SIGUSR1 , & act , NULL );
 	signal( SIGCLD , SIG_DFL );
 	signal( SIGCHLD , SIG_DFL );
 	signal( SIGPIPE , SIG_IGN );
@@ -73,6 +79,8 @@ _GOTO_RETRY_WAITPID :
 			{
 				if( g_exit_flag == 1 )
 					close( p_env->alive_pipe_session.alive_pipe[1] );
+				if( g_reload_flag == 1 )
+					write( p_env->alive_pipe_session.alive_pipe[1] , "R" , 1 );
 				goto _GOTO_RETRY_WAITPID;
 			}
 			FATALLOG( "waitpid failed , errno[%d]" , errno );
