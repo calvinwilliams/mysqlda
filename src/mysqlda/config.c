@@ -256,6 +256,12 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 	
 	struct ForwardInstance	*p_forward_instance = NULL ;
 	struct ForwardServer	*p_forward_server = NULL ;
+	int			forwards_no ;
+	struct ForwardInstance	forward_instance ;
+	int			forward_no ;
+	struct ForwardSession	*p_forward_session = NULL ;
+	struct ForwardSession	*p_next_forward_session = NULL ;
+	
 	
 	int			nret = 0 ;
 	
@@ -281,12 +287,6 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 		ERRORLOG( "*** ERROR : DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]" , p_env->config_filename , nret );
 		return -1;
 	}
-	
-	int			forwards_no ;
-	struct ForwardInstance	forward_instance ;
-	int			forward_no ;
-	struct ForwardSession	*p_forward_session = NULL ;
-	struct ForwardSession	*p_next_forward_session = NULL ;
 	
 	for( forwards_no = 0 ; forwards_no < p_conf->_forwards_count ; forwards_no++ )
 	{
@@ -319,7 +319,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 					if( STRCMP( p_forward_server->netaddr.ip , == , p_conf->forwards[forwards_no].forward[forward_no].ip ) && p_forward_server->netaddr.port == p_conf->forwards[forwards_no].forward[forward_no].port )
 						break;
 				}
-				if( forward_no > p_conf->forwards[forwards_no]._forward_count )
+				if( & (p_forward_server->forward_server_listnode) == & (p_forward_instance->forward_server_list) )
 				{
 					p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
 					if( p_forward_server == NULL )
@@ -406,6 +406,21 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 		}
 	}
 	
+	p_forward_instance = NULL ;
+	while(1)
+	{
+		p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+		if( p_forward_instance == NULL )
+			break;
+		
+		INFOLOG( "p_forward_instance[%p][%s]" , p_forward_instance , p_forward_instance->instance );
+		
+		lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
+		{
+			INFOLOG( "\tp_forward_server->ip[%s] ->port[%d]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+		}
+	}
+	
 	return 0;
 }
 
@@ -415,7 +430,6 @@ void UnloadConfig( struct MysqldaEnvironment *p_env )
 	struct ForwardInstance	*p_next_forward_instance = NULL ;
 	struct ForwardServer	*p_forward_server = NULL ;
 	struct ForwardServer	*p_next_forward_server = NULL ;
-	
 	
 	while(1)
 	{
