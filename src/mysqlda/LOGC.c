@@ -68,6 +68,14 @@ void SetLogLevel( int log_level )
 	return;
 }
 
+/* 设置日志进程PID */
+void SetLogPid()
+{
+	g_pid = getpid() ;
+	
+	return;
+}
+
 /* 输出日志 */
 int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *format , va_list valist )
 {

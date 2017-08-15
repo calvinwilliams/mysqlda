@@ -235,7 +235,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		if( p_forward_instance == NULL )
 			break;
 		
-		INFOLOG( "instance[%s] serial_range_begin[%lu] power[%lu]" , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
+		INFOLOG( "instance[%p][%s] serial_range_begin[%lu] power[%lu]" , p_forward_instance , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
 		
 		lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
 		{
@@ -303,12 +303,12 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 				}
 				if( forward_no > p_conf->forwards[forwards_no]._forward_count )
 				{
-					INFOLOG( "reload remove instance[%s] ip[%s] port[%d]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
-					
 					lk_list_for_each_entry_safe( p_forward_session , p_next_forward_session , & (p_forward_server->forward_session_list) , struct ForwardSession , forward_session_listnode )
 					{
 						OnClosingForwardSocket( p_env , p_forward_session );
 					}
+					
+					INFOLOG( "reload remove ip[%s] port[%d] in instance[%p][%s]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_forward_instance , p_forward_instance->instance );
 				}
 			}
 			
@@ -321,8 +321,6 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 				}
 				if( forward_no > p_conf->forwards[forwards_no]._forward_count )
 				{
-					INFOLOG( "reload add instance[%s] ip[%s] port[%d]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
-					
 					p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
 					if( p_forward_server == NULL )
 					{
@@ -337,6 +335,8 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 					INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
 					
 					lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
+					
+					INFOLOG( "reload add ip[%s] port[%d] in instance[%p][%s]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_forward_instance , p_forward_instance->instance );
 				}
 			}
 		}
@@ -379,6 +379,8 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 				INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
 				
 				lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
+				
+				INFOLOG( "reload add instance[%s] ip[%s] port[%d]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 			}
 			
 			nret = LinkForwardInstanceTreeNode( p_env , p_forward_instance );
@@ -393,10 +395,14 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			if( nret )
 			{
 				ERRORLOG( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
-				UnlinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
+				UnlinkForwardInstanceTreeNode( p_env , p_forward_instance );
 				free( p_forward_instance );
 				return -1;
 			}
+			
+			p_env->total_power += p_env->total_power ;
+			
+			INFOLOG( "reload add instance[%p][%s]" , p_forward_instance , p_forward_instance->instance );
 		}
 	}
 	

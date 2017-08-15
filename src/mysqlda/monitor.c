@@ -107,6 +107,7 @@ int monitor( void *pv )
 	
 	SetLogFile( "%s/log/mysqlda.log" , getenv("HOME") );
 	SetLogLevel( LOGLEVEL_DEBUG );
+	SetLogPid();
 	
 	nret = _monitor( p_env ) ;
 	INFOLOG( "monitor exit ..." );

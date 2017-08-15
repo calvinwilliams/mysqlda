@@ -135,6 +135,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		mysql_close( mysql_connection );
 	}
 	
+	exit_flag = 0 ;
 	while( ! exit_flag )
 	{
 		/* 等待epoll事件，或者1秒超时 */
@@ -361,6 +362,8 @@ int worker( void *pv )
 	struct MysqldaEnvironment	*p_env = (struct MysqldaEnvironment *) pv ;
 	
 	int				nret = 0 ;
+	
+	SetLogPid();
 	
 	nret = LoadConfig( p_env ) ;
 	if( nret )

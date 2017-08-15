@@ -287,7 +287,7 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		hash_val = CalcHash( library , library_len ) % (p_env->total_power) ;
 		INFOLOG( "library[%s] total_power[%d] hash_val[%d]" , library , p_env->total_power , hash_val );
 		p_forward_instance = QueryForwardSerialRangeTreeNode( p_env , hash_val ) ;
-		INFOLOG( "library[%s] p_forward_instance[%p] instance[%s]" , library , p_forward_instance , (p_forward_instance?p_forward_instance->instance:"") );
+		INFOLOG( "library[%s] p_forward_instance[%p][%s]" , library , p_forward_instance , (p_forward_instance?p_forward_instance->instance:"") );
 	}
 	else
 	{

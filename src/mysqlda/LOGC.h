@@ -89,6 +89,8 @@ void SetLogFile( char *format , ... );
 void SetLogFileV( char *format , va_list valist );
 void SetLogLevel( int log_level );
 
+void SetLogPid();
+
 #if ( defined __STDC_VERSION__ ) && ( __STDC_VERSION__ >= 199901 )
 
 extern TLS int		g_log_level ;
