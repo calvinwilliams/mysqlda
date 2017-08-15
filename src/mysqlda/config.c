@@ -17,7 +17,7 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	strcpy( conf.auth.db , "calvindb" );
 	
 	strcpy( conf.forwards[0].instance , "mysqlda1" );
-	strcpy( conf.forwards[0].forward[0].ip , "localhost" );
+	strcpy( conf.forwards[0].forward[0].ip , "127.0.0.1" );
 	conf.forwards[0].forward[0].port = 13306 ;
 	conf.forwards[0]._forward_count = 1 ;
 	conf._forwards_count = 1 ;
@@ -42,22 +42,22 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	return 0;
 }
 
-void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardPower *p_this_forward_power )
+void AddForwardInstanceTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_this_forward_instance )
 {
-	struct ForwardPower	*p_forward_power = NULL ;
+	struct ForwardInstance	*p_forward_instance = NULL ;
 	int			serial_range_begin ;
 	
 	serial_range_begin = 0 ;
 	while(1)
 	{
-		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
-		if( p_forward_power == NULL )
+		p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+		if( p_forward_instance == NULL )
 			break;
 		
-		p_forward_power->serial_range_begin = serial_range_begin ;
-		if( p_forward_power != p_this_forward_power )
-			p_forward_power->power++;
-		serial_range_begin += p_forward_power->power ;
+		p_forward_instance->serial_range_begin = serial_range_begin ;
+		if( p_forward_instance != p_this_forward_instance )
+			p_forward_instance->power++;
+		serial_range_begin += p_forward_instance->power ;
 	}
 	
 	p_env->total_power = serial_range_begin ;
@@ -71,14 +71,14 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	int			file_size ;
 	mysqlda_conf		*p_conf = NULL ;
 	int			forwards_no ;
-	struct ForwardPower	*p_forward_power = NULL ;
+	struct ForwardInstance	*p_forward_instance = NULL ;
 	int			serial_range_begin ;
 	int			forward_no ;
 	struct ForwardServer	*p_forward_server = NULL ;
 	
 	FILE			*fp = NULL ;
 	struct ForwardLibrary	forward_library ;
-	struct ForwardPower	forward_power ;
+	struct ForwardInstance	forward_instance ;
 	struct ForwardLibrary	*p_forward_library = NULL ;
 	
 	int			nret = 0 ;
@@ -119,17 +119,17 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	serial_range_begin = 0 ;
 	for( forwards_no = 0 ; forwards_no < p_conf->_forwards_count ; forwards_no++ )
 	{
-		p_forward_power = (struct ForwardPower *)malloc( sizeof(struct ForwardPower) ) ;
-		if( p_forward_power == NULL )
+		p_forward_instance = (struct ForwardInstance *)malloc( sizeof(struct ForwardInstance) ) ;
+		if( p_forward_instance == NULL )
 		{
 			ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
 			return -1;
 		}
-		memset( p_forward_power , 0x00 , sizeof(struct ForwardPower) );
+		memset( p_forward_instance , 0x00 , sizeof(struct ForwardInstance) );
 		
-		strcpy( p_forward_power->instance , p_conf->forwards[forwards_no].instance );
-		p_forward_power->power = 1 ;
-		p_forward_power->serial_range_begin = serial_range_begin ;
+		strcpy( p_forward_instance->instance , p_conf->forwards[forwards_no].instance );
+		p_forward_instance->power = 1 ;
+		p_forward_instance->serial_range_begin = serial_range_begin ;
 		
 		if( p_conf->forwards[forwards_no]._forward_count <= 0 )
 		{
@@ -137,7 +137,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			return -1;
 		}
 		
-		INIT_LK_LIST_HEAD( & (p_forward_power->forward_server_list) );
+		INIT_LK_LIST_HEAD( & (p_forward_instance->forward_server_list) );
 		for( forward_no = 0 ; forward_no < p_conf->forwards[forwards_no]._forward_count ; forward_no++ )
 		{
 			p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
@@ -151,24 +151,26 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			strcpy( p_forward_server->netaddr.ip , p_conf->forwards[forwards_no].forward[forward_no].ip );
 			p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
 			
-			lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_power->forward_server_list) );
+			INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
+			
+			lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
 		}
 		
-		nret = LinkForwardInstanceTreeNode( p_env , p_forward_power );
+		nret = LinkForwardInstanceTreeNode( p_env , p_forward_instance );
 		if( nret )
 		{
 			ERRORLOG( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]" , nret , errno );
 			return -1;
 		}
 		
-		nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_power );
+		nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
 		if( nret )
 		{
 			ERRORLOG( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
 			return -1;
 		}
 		
-		serial_range_begin += p_forward_power->power ;
+		serial_range_begin += p_forward_instance->power ;
 	}
 	
 	p_env->total_power = serial_range_begin ;
@@ -187,10 +189,10 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		while(1)
 		{
 			memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
-			memset( & forward_power , 0x00 , sizeof(struct ForwardPower) );
-			if( fscanf( fp , "%*s%*s%s%s\n" , forward_library.library , forward_power.instance ) == EOF )
+			memset( & forward_instance , 0x00 , sizeof(struct ForwardInstance) );
+			if( fscanf( fp , "%*s%*s%s%s\n" , forward_library.library , forward_instance.instance ) == EOF )
 				break;
-			if( forward_library.library[0] == '\0' || forward_power.instance[0] == '\0' )
+			if( forward_library.library[0] == '\0' || forward_instance.instance[0] == '\0' )
 				break;
 			
 			p_forward_library = (struct ForwardLibrary *)malloc( sizeof(struct ForwardLibrary) ) ;
@@ -202,10 +204,10 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			}
 			memcpy( p_forward_library , & forward_library , sizeof(struct ForwardLibrary) );
 			
-			p_forward_library->p_forward_power = QueryForwardInstanceTreeNode( p_env , & forward_power ) ;
-			if( p_forward_library->p_forward_power == NULL )
+			p_forward_library->p_forward_instance = QueryForwardInstanceTreeNode( p_env , & forward_instance ) ;
+			if( p_forward_library->p_forward_instance == NULL )
 			{
-				ERRORLOG( "*** ERROR : instance[%s] not found in %s" , forward_power.instance , p_env->save_filename );
+				ERRORLOG( "*** ERROR : instance[%s] not found in %s" , forward_instance.instance , p_env->save_filename );
 				fclose( fp );
 				return -1;
 			}
@@ -213,12 +215,12 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
 			if( nret )
 			{
-				ERRORLOG( "*** ERROR : LinkForwardLibraryTreeNode[%s][%s] failed[%d]" , forward_library.library , forward_power.instance , nret );
+				ERRORLOG( "*** ERROR : LinkForwardLibraryTreeNode[%s][%s] failed[%d]" , forward_library.library , forward_instance.instance , nret );
 				fclose( fp );
 				return -1;
 			}
 			
-			AddForwardPowerTreeNodePower( p_env , p_forward_library->p_forward_power );
+			AddForwardInstanceTreeNodePower( p_env , p_forward_library->p_forward_instance );
 		}
 		
 		fclose( fp );
@@ -226,16 +228,16 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	
 	INFOLOG( "Load %s ok" , p_env->save_filename );
 	
-	p_forward_power = NULL ;
+	p_forward_instance = NULL ;
 	while(1)
 	{
-		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
-		if( p_forward_power == NULL )
+		p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+		if( p_forward_instance == NULL )
 			break;
 		
-		INFOLOG( "instance[%s] serial_range_begin[%lu] power[%lu]" , p_forward_power->instance , p_forward_power->serial_range_begin , p_forward_power->power );
+		INFOLOG( "instance[%p][%s] serial_range_begin[%lu] power[%lu]" , p_forward_instance , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
 		
-		lk_list_for_each_entry( p_forward_server , & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode )
+		lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
 		{
 			INFOLOG( "\tip[%s] port[%d]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		}
@@ -246,29 +248,191 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	return 0;
 }
 
+int ReloadConfig( struct MysqldaEnvironment *p_env )
+{
+	char			*file_buffer = NULL ;
+	int			file_size ;
+	mysqlda_conf		*p_conf = NULL ;
+	
+	struct ForwardInstance	*p_forward_instance = NULL ;
+	struct ForwardServer	*p_forward_server = NULL ;
+	
+	int			nret = 0 ;
+	
+	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
+	if( file_buffer == NULL )
+	{
+		ERRORLOG( "*** ERROR : config file[%s] not found , errno[%d]" , p_env->config_filename , errno );
+		return -1;
+	}
+	
+	p_conf = (mysqlda_conf *)malloc( sizeof(mysqlda_conf) ) ;
+	if( p_conf == NULL )
+	{
+		ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	
+	memset( p_conf , 0x00 , sizeof(mysqlda_conf) );
+	nret = DSCDESERIALIZE_JSON_mysqlda_conf( "GB18030" , file_buffer , & file_size , p_conf ) ;
+	free( file_buffer );
+	if( nret )
+	{
+		ERRORLOG( "*** ERROR : DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]" , p_env->config_filename , nret );
+		return -1;
+	}
+	
+	int			forwards_no ;
+	struct ForwardInstance	forward_instance ;
+	int			forward_no ;
+	struct ForwardSession	*p_forward_session = NULL ;
+	struct ForwardSession	*p_next_forward_session = NULL ;
+	
+	for( forwards_no = 0 ; forwards_no < p_conf->_forwards_count ; forwards_no++ )
+	{
+		snprintf( forward_instance.instance , sizeof(forward_instance.instance)-1 , "%s" , p_conf->forwards[forwards_no].instance );
+		p_forward_instance = QueryForwardInstanceTreeNode( p_env , & forward_instance ) ;
+		if( p_forward_instance )
+		{
+			lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
+			{
+				for( forward_no = 0 ; forward_no < p_conf->forwards[forwards_no]._forward_count ; forward_no++ )
+				{
+					if( STRCMP( p_forward_server->netaddr.ip , == , p_conf->forwards[forwards_no].forward[forward_no].ip ) && p_forward_server->netaddr.port == p_conf->forwards[forwards_no].forward[forward_no].port )
+						break;
+				}
+				if( forward_no > p_conf->forwards[forwards_no]._forward_count )
+				{
+					lk_list_for_each_entry_safe( p_forward_session , p_next_forward_session , & (p_forward_server->forward_session_list) , struct ForwardSession , forward_session_listnode )
+					{
+						OnClosingForwardSocket( p_env , p_forward_session );
+					}
+					
+					INFOLOG( "reload remove ip[%s] port[%d] in instance[%p][%s]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_forward_instance , p_forward_instance->instance );
+				}
+			}
+			
+			for( forward_no = 0 ; forward_no < p_conf->forwards[forwards_no]._forward_count ; forward_no++ )
+			{
+				lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
+				{
+					if( STRCMP( p_forward_server->netaddr.ip , == , p_conf->forwards[forwards_no].forward[forward_no].ip ) && p_forward_server->netaddr.port == p_conf->forwards[forwards_no].forward[forward_no].port )
+						break;
+				}
+				if( forward_no > p_conf->forwards[forwards_no]._forward_count )
+				{
+					p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
+					if( p_forward_server == NULL )
+					{
+						ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+						return -1;
+					}
+					memset( p_forward_server , 0x00 , sizeof(struct ForwardServer) );
+					
+					strcpy( p_forward_server->netaddr.ip , p_conf->forwards[forwards_no].forward[forward_no].ip );
+					p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
+					
+					INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
+					
+					lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
+					
+					INFOLOG( "reload add ip[%s] port[%d] in instance[%p][%s]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_forward_instance , p_forward_instance->instance );
+				}
+			}
+		}
+		else
+		{
+			p_forward_instance = (struct ForwardInstance *)malloc( sizeof(struct ForwardInstance) ) ;
+			if( p_forward_instance == NULL )
+			{
+				ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+				return -1;
+			}
+			memset( p_forward_instance , 0x00 , sizeof(struct ForwardInstance) );
+			
+			strcpy( p_forward_instance->instance , p_conf->forwards[forwards_no].instance );
+			p_forward_instance->power = p_env->total_power ;
+			p_forward_instance->serial_range_begin = p_env->total_power ;
+			
+			if( p_conf->forwards[forwards_no]._forward_count <= 0 )
+			{
+				ERRORLOG( "*** ERROR : forward not found" );
+				free( p_forward_instance );
+				return -1;
+			}
+			
+			INIT_LK_LIST_HEAD( & (p_forward_instance->forward_server_list) );
+			for( forward_no = 0 ; forward_no < p_conf->forwards[forwards_no]._forward_count ; forward_no++ )
+			{
+				p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
+				if( p_forward_server == NULL )
+				{
+					ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+					free( p_forward_instance );
+					return -1;
+				}
+				memset( p_forward_server , 0x00 , sizeof(struct ForwardServer) );
+				
+				strcpy( p_forward_server->netaddr.ip , p_conf->forwards[forwards_no].forward[forward_no].ip );
+				p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
+				
+				INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
+				
+				lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
+				
+				INFOLOG( "reload add instance[%s] ip[%s] port[%d]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+			}
+			
+			nret = LinkForwardInstanceTreeNode( p_env , p_forward_instance );
+			if( nret )
+			{
+				ERRORLOG( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]" , nret , errno );
+				free( p_forward_instance );
+				return -1;
+			}
+			
+			nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
+			if( nret )
+			{
+				ERRORLOG( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
+				UnlinkForwardInstanceTreeNode( p_env , p_forward_instance );
+				free( p_forward_instance );
+				return -1;
+			}
+			
+			p_env->total_power += p_env->total_power ;
+			
+			INFOLOG( "reload add instance[%p][%s]" , p_forward_instance , p_forward_instance->instance );
+		}
+	}
+	
+	return 0;
+}
+
 void UnloadConfig( struct MysqldaEnvironment *p_env )
 {
-	struct ForwardPower	*p_forward_power = NULL ;
-	struct ForwardPower	*p_next_forward_power = NULL ;
+	struct ForwardInstance	*p_forward_instance = NULL ;
+	struct ForwardInstance	*p_next_forward_instance = NULL ;
 	struct ForwardServer	*p_forward_server = NULL ;
 	struct ForwardServer	*p_next_forward_server = NULL ;
 	
+	
 	while(1)
 	{
-		p_next_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
-		if( p_forward_power )
+		p_next_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+		if( p_forward_instance )
 		{
-			UnlinkForwardSerialRangeTreeNode( p_env , p_forward_power );
-			free( p_forward_power );
+			UnlinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
+			free( p_forward_instance );
 		}
-		if( p_next_forward_power == NULL )
+		if( p_next_forward_instance == NULL )
 		{
 			break;
 		}
 		
-		p_forward_power = p_next_forward_power ;
+		p_forward_instance = p_next_forward_instance ;
 		
-		lk_list_for_each_entry_safe( p_forward_server , p_next_forward_server , & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode )
+		lk_list_for_each_entry_safe( p_forward_server , p_next_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
 		{
 			free( p_forward_server );
 		}

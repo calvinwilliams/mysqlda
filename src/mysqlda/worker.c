@@ -3,7 +3,7 @@
 static int _worker( struct MysqldaEnvironment *p_env )
 {
 	struct AcceptedSession	*p_accepted_session = NULL ;
-	struct ForwardPower	*p_forward_power = NULL ;
+	struct ForwardInstance	*p_forward_instance = NULL ;
 	MYSQL			*mysql_connection = NULL ;
 	struct ForwardServer	*p_forward_server = NULL ;
 	struct ForwardSession	*p_forward_session = NULL ;
@@ -12,6 +12,8 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	int			epoll_nfds ;
 	int			i ;
 	struct epoll_event	*p_event = NULL ;
+	char			pipe_data ;
+	int			exit_flag ;
 	
 	int			nret = 0 ;
 	
@@ -105,8 +107,8 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	/* 连接后端数据库 */
 	while(1)
 	{
-		p_forward_power = TravelForwardSerialRangeTreeNode( p_env , p_forward_power ) ;
-		if( p_forward_power == NULL )
+		p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+		if( p_forward_instance == NULL )
 			break;
 		
 		mysql_connection = mysql_init( NULL ) ;
@@ -116,24 +118,25 @@ static int _worker( struct MysqldaEnvironment *p_env )
 			return -1;
 		}
 		
-		p_forward_server = lk_list_first_entry( & (p_forward_power->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
-		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		p_forward_server = lk_list_first_entry( & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
+		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		if( mysql_real_connect( mysql_connection , p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_server->netaddr.port , NULL , 0 ) == NULL )
 		{
-			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
+			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
 			mysql_close( mysql_connection );
 			return -2;
 		}
 		else
 		{
-			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		}
 		
-		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_power->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		mysql_close( mysql_connection );
 	}
 	
-	while(1)
+	exit_flag = 0 ;
+	while( ! exit_flag )
 	{
 		/* 等待epoll事件，或者1秒超时 */
 		InfoLog( __FILE__ , __LINE__ , "epoll_wait #%d# ..." , p_env->epoll_fd );
@@ -198,7 +201,26 @@ static int _worker( struct MysqldaEnvironment *p_env )
 			/* 存活管道事件 */
 			else if( p_event->data.ptr == & (p_env->alive_pipe_session) )
 			{
-				break;
+				INFOLOG( "read alive_pipe ..." );
+				pipe_data = 0 ;
+				nret = read( p_env->alive_pipe_session.alive_pipe[0] , & pipe_data , 1 ) ;
+				INFOLOG( "read alive_pipe ok[%d] , pipe_data[%c]" , nret , pipe_data );
+				if( nret == 1 && pipe_data == 'R' )
+				{
+					nret = ReloadConfig( p_env ) ;
+					if( nret )
+					{
+						ERRORLOG( "ReloadConfig failed[%d]" , nret );
+					}
+					else
+					{
+						INFOLOG( "ReloadConfig ok" );
+					}
+				}
+				else if( nret == 0 )
+				{
+					exit_flag = 1 ;
+				}
 			}
 			/* 其它事件，即客户端连接会话事件 */
 			else
@@ -326,13 +348,6 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				}
 			}
 		}
-		if( i < epoll_nfds && p_event->data.ptr == & (p_env->alive_pipe_session) )
-		{
-			break;
-		}
-		
-		/* 处理超时 */
-		/* ... */
 	}
 	
 	/* 关闭epoll池 */
@@ -347,6 +362,8 @@ int worker( void *pv )
 	struct MysqldaEnvironment	*p_env = (struct MysqldaEnvironment *) pv ;
 	
 	int				nret = 0 ;
+	
+	SetLogPid();
 	
 	nret = LoadConfig( p_env ) ;
 	if( nret )

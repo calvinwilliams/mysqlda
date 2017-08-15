@@ -71,7 +71,7 @@ int main( int argc , char *argv[] )
 	{
 		if( p_env->no_daemon_flag )
 		{
-			nret = worker( p_env ) ;
+			nret = monitor( p_env ) ;
 		}
 		else
 		{

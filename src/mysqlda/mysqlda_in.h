@@ -87,7 +87,6 @@ struct AcceptedSession
 	unsigned char		type ;
 	int			status ;
 	
-	struct ForwardServer	*p_forward_server ;
 	struct NetAddress	netaddr ;
 	
 	char			*comm_buffer ;
@@ -101,18 +100,18 @@ struct AcceptedSession
 } ;
 
 /* 服务端转发会话 结构 */
-struct ForwardPower ;
+struct ForwardInstance ;
 struct ForwardSession
 {
 	char			type ;
 	
-	struct ForwardPower	*p_forward_power ;
+	struct ForwardInstance	*p_forward_instance ;
 	struct ForwardServer	*p_forward_server ;
 	
 	MYSQL			*mysql_connection ;
 	struct AcceptedSession	*p_pair_accepted_session ;
 	
-	struct rb_node		forward_session_rbnode ;
+	struct lk_list_head	forward_session_listnode ;
 } ;
 
 /* 服务端转发服务器信息 结构 */
@@ -120,11 +119,13 @@ struct ForwardServer
 {
 	struct NetAddress	netaddr ;
 	
+	struct lk_list_head	forward_session_list ;
+	
 	struct lk_list_head	forward_server_listnode ;
 } ;
 
-/* 服务端转发库权重 结构 */
-struct ForwardPower
+/* 服务端转发库 结构 */
+struct ForwardInstance
 {
 	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ;
 	struct rb_node		forward_instance_rbnode ;
@@ -145,7 +146,7 @@ struct ForwardLibrary
 	char			library[ MAXLEN_LIBRARY + 1 ] ;
 	struct rb_node		forward_library_rbnode ;
 	
-	struct ForwardPower	*p_forward_power ;
+	struct ForwardInstance	*p_forward_instance ;
 } ;
 
 /* MySQL分布式代理 环境结构 */
@@ -160,8 +161,8 @@ struct MysqldaEnvironment
 	char			pass[ sizeof(((mysqlda_conf*)0)->auth.pass) ] ;
 	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ;
 	
-	struct rb_root		forward_power_rbtree ;
 	struct rb_root		forward_instance_rbtree ;
+	struct rb_root		forward_serial_range_rbtree ;
 	unsigned long		total_power ;
 	
 	struct AlivePipeSession	alive_pipe_session ;
@@ -191,9 +192,10 @@ unsigned long CalcHash( char *str , int str_len );
 
 int InitConfigFile( struct MysqldaEnvironment *p_env );
 
-void AddForwardPowerTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardPower *p_this_forward_power );
+void AddForwardInstanceTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_this_forward_instance );
 
 int LoadConfig( struct MysqldaEnvironment *p_env );
+int ReloadConfig( struct MysqldaEnvironment *p_env );
 void UnloadConfig( struct MysqldaEnvironment *p_env );
 
 /*
@@ -235,15 +237,15 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
  * rbtree
  */
 
-int LinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
-struct ForwardPower *QueryForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
-void UnlinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
+int LinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
+struct ForwardInstance *QueryForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
+void UnlinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
 void DestroyForwardInstanceTree( struct MysqldaEnvironment *p_env );
 
-int LinkForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
-struct ForwardPower *QueryForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no );
-struct ForwardPower *TravelForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
-void UnlinkForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardPower *p_forward_power );
+int LinkForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
+struct ForwardInstance *QueryForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , unsigned long serial_no );
+struct ForwardInstance *TravelForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
+void UnlinkForwardSerialRangeTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
 void DestroyForwardSerialRangeTree( struct MysqldaEnvironment *p_env );
 
 int LinkForwardLibraryTreeNode( struct MysqldaEnvironment *p_env , struct ForwardLibrary *p_forward_library );
