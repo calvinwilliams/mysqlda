@@ -21,6 +21,7 @@ int FUNCNAME_DSCLOG_mysqlda_conf( mysqlda_conf *pst )
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.user[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.user );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.pass[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.pass );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.auth.db[%s]" NEWLINE_DSCLOG_mysqlda_conf , pst->auth.db );
+		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf.session_pool.unused_forward_session_timeout[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->session_pool.unused_forward_session_timeout );
 		PREFIX_DSCLOG_mysqlda_conf "mysqlda_conf._forwards_count[%d]" NEWLINE_DSCLOG_mysqlda_conf , pst->_forwards_count );
 		for( index[1] = 0 ; index[1] < pst->_forwards_count ; index[1]++ )
 		{

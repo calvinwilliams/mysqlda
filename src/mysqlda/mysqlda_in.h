@@ -57,85 +57,85 @@ struct ListenSession
 	struct NetAddress	netaddr ;
 } ;
 
-#define SESSIONTYPE_ALIVEPIPESESSION	0
-#define SESSIONTYPE_ACCEPTEDSESSION	1
-#define SESSIONTYPE_FORWARDSESSION	2
+#define SESSIONTYPE_ACCEPTEDSESSION	1 /* 客户端连接会话类型 */
+#define SESSIONTYPE_FORWARDSESSION	2 /* 服务端转发会话类型 */
 
-#define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						1
-#define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	2
-#define SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING			3
-#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY		4
-#define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			5
-#define SESSIONSTATUS_FORWARDING							7
+#define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						1 /* 转发端向客户端发送握手信息前 */
+#define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	2 /* 转发端向客户端发送握手信息后，接收客户端认证信息前 */
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING			3 /* 转发端发送客户端认证失败信息后 */
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY		4 /* 转发端发送客户端认证成功信息后，接收选择库前 */
+#define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			5 /* 接收选择库后，全双工互转发前 */
+#define SESSIONSTATUS_FORWARDING							7 /* 全双工互转发 */
 
 #define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
 
 /* 存活管道会话 结构 */
 struct AlivePipeSession
 {
-	unsigned char		type ;
-	
-	int			alive_pipe[ 2 ] ;
+	int			alive_pipe[ 2 ] ; /* 管道描述字 */
 } ;
 
 /* 客户端连接会话 结构 */
-#define MAXLEN_ACCEPTED_SESSION_COMM_BUFFER	(3+1+(2<<24))
+#define MAXLEN_ACCEPTED_SESSION_COMM_BUFFER	(3+1+(2<<24)) /* 通讯数据缓冲区大小（待优化） */
 
 struct ForwardSession ;
 struct AcceptedSession
 {
-	unsigned char		type ;
-	int			status ;
+	unsigned char		type ; /* 会话类型 */
+	int			status ; /* 会话连接状态 */
 	
-	struct NetAddress	netaddr ;
+	struct NetAddress	netaddr ; /* 网络地址 */
 	
-	char			*comm_buffer ;
-	int			fill_len ;
-	int			process_len ;
-	int			comm_body_len ;
+	char			*comm_buffer ; /* 通讯缓冲区基地址 */
+	int			fill_len ; /* 数据填充长度 */
+	int			process_len ; /* 数据处理长度 */
+	int			comm_body_len ; /* mysql协议体长度 */
 	
-	char			random_data[ 20 ] ;
+	char			random_data[ 20 ] ; /* mysql认证随机数 */
 	
-	struct ForwardSession	*p_pair_forward_session ;
+	struct ForwardSession	*p_pair_forward_session ; /* 对应 服务端转发会话 */
 } ;
 
 /* 服务端转发会话 结构 */
 struct ForwardInstance ;
 struct ForwardSession
 {
-	char			type ;
+	char			type ; /* 会话类型 */
 	
-	struct ForwardInstance	*p_forward_instance ;
-	struct ForwardServer	*p_forward_server ;
+	struct AcceptedSession	*p_pair_accepted_session ; /* 对应 客户端连接会话 */
+	struct ForwardInstance	*p_forward_instance ; /* 对应 服务端转发库 */
+	struct ForwardServer	*p_forward_server ; /* 对应 服务端转发服务器 */
 	
-	MYSQL			*mysql_connection ;
-	struct AcceptedSession	*p_pair_accepted_session ;
+	MYSQL			*mysql_connection ; /* mysql连接句柄 */
 	
-	struct lk_list_head	forward_session_listnode ;
+	struct lk_list_head	forward_session_listnode ; /* 服务端转发会话 工作会话 链表节点 */
+	time_t			close_unused_forward_session_timestamp ; /* 服务端转发会话 缓存会话 未来清理时间 */
+	struct lk_list_head	unused_forward_session_listnode ; /* 服务端转发会话 缓存会话 链表节点 */
 } ;
 
 /* 服务端转发服务器信息 结构 */
 struct ForwardServer
 {
-	struct NetAddress	netaddr ;
+	struct NetAddress	netaddr ; /* 网络地址 */
 	
-	struct lk_list_head	forward_session_list ;
+	struct lk_list_head	forward_session_list ; /* 服务端转发会话 工作会话 链表 */
+	struct lk_list_head	unused_forward_session_list ; /* 服务端转发会话 缓存会话 链表 */
 	
-	struct lk_list_head	forward_server_listnode ;
+	struct lk_list_head	forward_server_listnode ; /* 链表节点 */
 } ;
 
 /* 服务端转发库 结构 */
 struct ForwardInstance
 {
-	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ;
-	struct rb_node		forward_instance_rbnode ;
+	char			instance[ sizeof(((mysqlda_conf*)0)->forwards[0].instance) ] ; /* 实例名 */
+	struct rb_node		forward_instance_rbnode ; /* 实例名 树节点 */
 	
-	struct lk_list_head	forward_server_list ;
+	struct lk_list_head	forward_server_list ; /* 服务端转发服务器信息 链表 */
 	
-	unsigned long		power ;
+	unsigned long		power ; /* 权重 */
 	
-	unsigned long		serial_range_begin ;
-	struct rb_node		forward_serial_range_rbnode ;
+	unsigned long		serial_range_begin ; /* 开始序号 */
+	struct rb_node		forward_serial_range_rbnode ; /* 开始序号 树节点 */
 } ;
 
 /* 服务端转发规则历史 结构 */
@@ -143,34 +143,35 @@ struct ForwardInstance
 
 struct ForwardLibrary
 {
-	char			library[ MAXLEN_LIBRARY + 1 ] ;
-	struct rb_node		forward_library_rbnode ;
+	char			library[ MAXLEN_LIBRARY + 1 ] ; /* 核心业务对象 值 */
+	struct rb_node		forward_library_rbnode ; /* 树节点 */
 	
-	struct ForwardInstance	*p_forward_instance ;
+	struct ForwardInstance	*p_forward_instance ; /* 对应 服务端转发库 */
 } ;
 
 /* MySQL分布式代理 环境结构 */
 struct MysqldaEnvironment
 {
-	char			*config_filename ;
-	char			*save_filename ;
-	int			no_daemon_flag ;
-	char			*action ;
+	char			*config_filename ; /* 配置路径文件 */
+	char			*save_filename ; /* 转发规则历史 持久化 路径文件 */
+	int			no_daemon_flag ; /* 是否以守护进程模式运行 */
+	char			*action ; /* 行为方式 */
 	
-	char			user[ sizeof(((mysqlda_conf*)0)->auth.user) ] ;
-	char			pass[ sizeof(((mysqlda_conf*)0)->auth.pass) ] ;
-	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ;
+	char			user[ sizeof(((mysqlda_conf*)0)->auth.user) ] ; /* 数据库连接用户名 */
+	char			pass[ sizeof(((mysqlda_conf*)0)->auth.pass) ] ; /* 数据库连接用户密码 */
+	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ; /* 数据库名 */
+	time_t			unused_forward_session_timeout ; /* 服务端转发会话缓存会话池超时时间 */
 	
-	struct rb_root		forward_instance_rbtree ;
-	struct rb_root		forward_serial_range_rbtree ;
-	unsigned long		total_power ;
+	struct rb_root		forward_instance_rbtree ; /* 服务端转发库 树（实例名为排序索引） */
+	struct rb_root		forward_serial_range_rbtree ; /* 服务端转发库 树（开始序号为排序索引） */
+	unsigned long		total_power ; /* 总权重 */
 	
-	struct AlivePipeSession	alive_pipe_session ;
-	struct ListenSession	listen_session ;
+	struct AlivePipeSession	alive_pipe_session ; /* 存活管道会话 */
+	struct ListenSession	listen_session ; /* 侦听会话 */
 	
-	int			epoll_fd ;
+	int			epoll_fd ; /* epoll描述字 */
 	
-	struct rb_root		forward_library_rbtree ;
+	struct rb_root		forward_library_rbtree ; /* 服务端转发规则历史 树 */
 } ;
 
 /*
@@ -192,7 +193,7 @@ unsigned long CalcHash( char *str , int str_len );
 
 int InitConfigFile( struct MysqldaEnvironment *p_env );
 
-void AddForwardInstanceTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_this_forward_instance );
+void IncreaseForwardInstanceTreeNodePower( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_this_forward_instance );
 
 int LoadConfig( struct MysqldaEnvironment *p_env );
 int ReloadConfig( struct MysqldaEnvironment *p_env );

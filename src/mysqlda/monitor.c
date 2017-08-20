@@ -7,10 +7,12 @@ static void SignalProcess( int sig_no )
 {
 	if( sig_no == SIGTERM || sig_no == SIGINT )
 	{
+		/* 设置退出标志 */
 		g_exit_flag = 1 ;
 	}
 	else if( sig_no == SIGUSR1 )
 	{
+		/* 设置重载配置标志 */
 		g_reload_flag = 1 ;
 	}
 	
@@ -38,9 +40,11 @@ static int _monitor( struct MysqldaEnvironment *p_env )
 	signal( SIGPIPE , SIG_IGN );
 	signal( SIGHUP , SIG_IGN );
 	
+	/* 父进程主循环 */
 	while( ! g_exit_flag )
 	{
 _GOTO_RETRY_PIPE :
+		/* 创建存活管道 */
 		nret = pipe( p_env->alive_pipe_session.alive_pipe ) ;
 		if( nret == -1 )
 		{
@@ -51,6 +55,7 @@ _GOTO_RETRY_PIPE :
 		}
 		
 _GOTO_RETRY_FORK :
+		/* 创建子进程 */
 		pid = fork() ;
 		if( pid == -1 )
 		{
@@ -72,15 +77,16 @@ _GOTO_RETRY_FORK :
 		}
 		
 _GOTO_RETRY_WAITPID :
+		/* 监控子进程结束，重启之 */
 		pid = waitpid( pid , & status , 0 ) ;
 		if( pid == -1 ) 
 		{
 			if( errno == EINTR )
 			{
 				if( g_exit_flag == 1 )
-					close( p_env->alive_pipe_session.alive_pipe[1] );
+					close( p_env->alive_pipe_session.alive_pipe[1] ); /* 直接断开存活管道，引发子进程进入推出流程 */
 				if( g_reload_flag == 1 )
-					write( p_env->alive_pipe_session.alive_pipe[1] , "R" , 1 );
+					write( p_env->alive_pipe_session.alive_pipe[1] , "R" , 1 ); /* 发送命令字节'R'，引发子进程重载配置 */
 				goto _GOTO_RETRY_WAITPID;
 			}
 			FATALLOG( "waitpid failed , errno[%d]" , errno );
@@ -105,6 +111,7 @@ int monitor( void *pv )
 	
 	int				nret = 0 ;
 	
+	/* 设置日志文件和等级 */
 	SetLogFile( "%s/log/mysqlda.log" , getenv("HOME") );
 	SetLogLevel( LOGLEVEL_DEBUG );
 	SetLogPid();

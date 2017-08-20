@@ -1,5 +1,6 @@
 #include "mysqlda_in.h"
 
+/* 非堵塞接受客户端连接 */
 int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *p_listen_session )
 {
 	struct AcceptedSession	accepted_session ;
@@ -64,6 +65,7 @@ int OnAcceptingSocket( struct MysqldaEnvironment *p_env , struct ListenSession *
 	return 0;
 }
 
+/* 非堵塞接收客户端连接会话 */
 int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	struct ForwardSession	*p_forward_session = p_accepted_session->p_pair_forward_session ;
@@ -73,6 +75,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 	
 	int			nret = 0 ;
 	
+	/* 收一把客户端连接会话 */
 	recv_base = p_accepted_session->comm_buffer + p_accepted_session->fill_len ;
 	recv_len = MAXLEN_ACCEPTED_SESSION_COMM_BUFFER - p_accepted_session->fill_len ;
 	len = recv( p_accepted_session->netaddr.sock , recv_base , recv_len , 0 ) ;
@@ -91,6 +94,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 		p_accepted_session->fill_len += len ;
 		p_accepted_session->process_len = 0 ;
 		
+		/* 如果未计算出mysql协议体长度，则计算之 */
 		if( p_accepted_session->fill_len > 3 && p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = MYSQL_COMMLEN(p_accepted_session->comm_buffer) ;
@@ -118,6 +122,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 			DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
 		}
 		
+		/* 检查是否收满完整的mysql协议包 */
 		if( p_accepted_session->comm_body_len > 0 && p_accepted_session->fill_len >= 3+1+p_accepted_session->comm_body_len )
 		{
 			DEBUGLOG( "recv #%d# done , comm_body_len[%d]" , p_accepted_session->netaddr.sock , p_accepted_session->comm_body_len );
@@ -151,6 +156,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 	return 0;
 }
 
+/* 非堵塞发送客户端连接会话 */
 int OnSendingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	struct ForwardSession	*p_forward_session = p_accepted_session->p_pair_forward_session ;
@@ -158,10 +164,9 @@ int OnSendingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedS
 	int			send_len ;
 	int			len ;
 	
-	int			nret = 0 ;
-	
 _GOTO_SENDING_AGAIN :
 	
+	/* 发一把客户端连接会话 */
 	send_base = p_accepted_session->comm_buffer + p_accepted_session->process_len ;
 	send_len = 3+1+p_accepted_session->comm_body_len - p_accepted_session->process_len ;
 	len = send( p_accepted_session->netaddr.sock , send_base , send_len , 0 ) ;
@@ -175,6 +180,7 @@ _GOTO_SENDING_AGAIN :
 		p_accepted_session->process_len += len ;
 		DEBUGHEXLOG( send_base , len , "send #%d# [%d]bytes ok" , p_accepted_session->netaddr.sock , len );
 		
+		/* 检查是否发完mysql协议包 */
 		if( 3+1+p_accepted_session->comm_body_len == p_accepted_session->process_len )
 		{
 			if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE ) )
@@ -231,27 +237,32 @@ _GOTO_SENDING_AGAIN :
 	return 0;
 }
 
+/* 关闭客户端连接会话 */
 int OnClosingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	struct ForwardSession	*p_forward_session = p_accepted_session->p_pair_forward_session ;
 	
-	int			nret = 0 ;
-	
+	/* 清理客户端连接会话 */
 	DeleteAcceptedSessionEpoll( p_env , p_accepted_session );
 	close( p_accepted_session->netaddr.sock );
 	INFOLOG( "close #%d#" , p_accepted_session->netaddr.sock );
 	
 	if( p_accepted_session->p_pair_forward_session )
 	{
+		/* 清理服务端转发会话 */
 		if( p_forward_session->mysql_connection )
 		{
+			/* 移动会话到缓存池 */
 			DeleteForwardSessionEpoll( p_env , p_forward_session );
-			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_instance->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
-			mysql_close( p_forward_session->mysql_connection );
-			p_forward_session->mysql_connection = NULL ;
+			lk_list_del_init( & (p_accepted_session->p_pair_forward_session->forward_session_listnode) );
+			p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp = time(NULL) + p_env->unused_forward_session_timeout ;
+			lk_list_add_tail( & (p_accepted_session->p_pair_forward_session->unused_forward_session_listnode) , & (p_accepted_session->p_pair_forward_session->p_forward_server->unused_forward_session_list) );
+			INFOLOG( "move p_forward_session[0x%X] [%d] from forward_session_list to unused_forward_session_list" , p_accepted_session->p_pair_forward_session , p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp );
 		}
-		
-		free( p_forward_session );
+		else
+		{
+			free( p_forward_session );
+		}
 	}
 	
 	free( p_accepted_session->comm_buffer );
@@ -260,6 +271,7 @@ int OnClosingAcceptedSocket( struct MysqldaEnvironment *p_env , struct AcceptedS
 	return 0;
 }
 
+/* 非堵塞接收服务端转发会话 */
 int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session )
 {
 	struct AcceptedSession	*p_accepted_session = p_forward_session->p_pair_accepted_session ;
@@ -267,8 +279,7 @@ int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardS
 	int			recv_len ;
 	int			len ;
 	
-	int			nret = 0 ;
-	
+	/* 收一把服务端转发会话 */
 	recv_base = p_accepted_session->comm_buffer + p_accepted_session->fill_len ;
 	recv_len = MAXLEN_ACCEPTED_SESSION_COMM_BUFFER - p_accepted_session->fill_len ;
 	len = recv( p_forward_session->mysql_connection->net.fd , recv_base , recv_len , 0 ) ;
@@ -287,6 +298,7 @@ int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardS
 		p_accepted_session->fill_len += len ;
 		p_accepted_session->process_len = 0 ;
 		
+		/* 如果未计算出mysql协议体长度，则计算之 */
 		if( p_accepted_session->fill_len > 3 && p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = MYSQL_COMMLEN(p_accepted_session->comm_buffer) ;
@@ -294,6 +306,7 @@ int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardS
 		
 		DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
 		
+		/* 检查是否收满完整的mysql协议包 */
 		if( p_accepted_session->comm_body_len > 0 && p_accepted_session->fill_len >= 3+1+p_accepted_session->comm_body_len )
 		{
 			DEBUGLOG( "recv #%d# done , comm_body_len[%d]" , p_accepted_session->netaddr.sock , p_accepted_session->comm_body_len );
@@ -306,6 +319,7 @@ int OnReceivingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardS
 	return 0;
 }
 
+/* 非堵塞发送服务端转发会话 */
 int OnSendingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session )
 {
 	struct AcceptedSession	*p_accepted_session = p_forward_session->p_pair_accepted_session ;
@@ -313,10 +327,9 @@ int OnSendingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 	int			send_len ;
 	int			len ;
 	
-	int			nret = 0 ;
-	
 _GOTO_SENDING_AGAIN :
 	
+	/* 发一把服务端转发会话 */
 	send_base = p_accepted_session->comm_buffer + p_accepted_session->process_len ;
 	send_len = 3+1+p_accepted_session->comm_body_len - p_accepted_session->process_len ;
 	len = send( p_forward_session->mysql_connection->net.fd , send_base , send_len , 0 ) ;
@@ -330,6 +343,7 @@ _GOTO_SENDING_AGAIN :
 		p_accepted_session->process_len += len ;
 		DEBUGHEXLOG( send_base , len , "send #%d# [%d]bytes ok" , p_accepted_session->netaddr.sock , len );
 		
+		/* 检查是否发完mysql协议包 */
 		if( p_accepted_session->process_len == p_accepted_session->fill_len )
 		{
 			p_accepted_session->fill_len = 0 ;
@@ -350,20 +364,12 @@ _GOTO_SENDING_AGAIN :
 	return 0;
 }
 
+/* 关闭服务端转发会话 */
 int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSession *p_forward_session )
 {
 	struct AcceptedSession	*p_accepted_session = p_forward_session->p_pair_accepted_session ;
 	
-	int			nret = 0 ;
-	
-	if( p_forward_session->mysql_connection )
-	{
-		DeleteForwardSessionEpoll( p_env , p_forward_session );
-		INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_instance->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
-		mysql_close( p_forward_session->mysql_connection );
-		p_forward_session->mysql_connection = NULL ;
-	}
-	
+	/* 清理客户端连接会话 */
 	if( p_forward_session->p_pair_accepted_session )
 	{
 		DeleteAcceptedSessionEpoll( p_env , p_accepted_session );
@@ -374,7 +380,20 @@ int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 		free( p_accepted_session );
 	}
 	
-	free( p_forward_session );
+	/* 清理服务端转发会话 */
+	if( p_forward_session->mysql_connection )
+	{
+		/* 移动会话到缓存池 */
+		DeleteForwardSessionEpoll( p_env , p_forward_session );
+		lk_list_del_init( & (p_accepted_session->p_pair_forward_session->forward_session_listnode) );
+		p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp = time(NULL) + p_env->unused_forward_session_timeout ;
+		lk_list_add_tail( & (p_accepted_session->p_pair_forward_session->unused_forward_session_listnode) , & (p_accepted_session->p_pair_forward_session->p_forward_server->unused_forward_session_list) );
+		INFOLOG( "move p_forward_session[0x%X] [%d] from forward_session_list to unused_forward_session_list" , p_accepted_session->p_pair_forward_session , p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp );
+	}
+	else
+	{
+		free( p_forward_session );
+	}
 	
 	return 0;
 }

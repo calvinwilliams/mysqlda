@@ -1,5 +1,6 @@
 #include "mysqlda_in.h"
 
+/* 填充转发端发给客户端的握手分组 */
 int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	int		len ;
@@ -11,44 +12,31 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* 协议版本 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x0A ; p_accepted_session->fill_len++;
-	
 	/* 协议文本串 */
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , "5.5.52-MariaDB" ) ; p_accepted_session->fill_len += len+1 ;
-	
 	/* 连接ID */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x6A\x00\x00\x00" , 4 ); p_accepted_session->fill_len += 4 ;
-	
 	/* 加密串的前半部分 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_accepted_session->random_data , 8 ); p_accepted_session->fill_len += 8 ;
-	
 	/* 固定填充1个0x00 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* 服务端属性的低16位 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\xFF\xF7" , 2 ); p_accepted_session->fill_len += 2 ;
-	
 	/* 字符集 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x08 ; p_accepted_session->fill_len++;
-	
 	/* 服务器状态 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x02\x00" , 2 ); p_accepted_session->fill_len += 2 ;
-	
 	/* 服务端属性的高16位 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x0F\xA0" , 2 ); p_accepted_session->fill_len += 2 ;
-	
 	/* 固定填充1个0x00 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x15 ; p_accepted_session->fill_len++;
-	
 	/* 固定填充10个0x00 */
 	memset( p_accepted_session->comm_buffer+p_accepted_session->fill_len , 0x00 , 10 ); p_accepted_session->fill_len += 10 ;
-	
 	/* 加密串的后半部分 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_accepted_session->random_data+8 , 12 ); p_accepted_session->fill_len += 12 ;
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* 未知后缀 */
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , "mysql_native_password" ) ; p_accepted_session->fill_len += len+1 ;
 	
@@ -63,6 +51,7 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	return 0;
 }
 
+/* 密码串验证 */
 static int CheckMysqlEncryptPassword( char *random_data , char *pass , char *enc_compare )
 {
 	unsigned char		pass_sha1[ 20 ] ;
@@ -107,6 +96,7 @@ static int CheckMysqlEncryptPassword( char *random_data , char *pass , char *enc
 		return 1;
 }
 
+/* 分解、检查客户端发给转发端的认证分组 */
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	char		*p = NULL ;
@@ -150,6 +140,7 @@ int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct Accept
 	return 0;
 }
 
+/* 填充转发端发给客户端的认证失败分组 */
 int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	int		len ;
@@ -159,19 +150,14 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
-	
 	/* 状态标识 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0xFF ; p_accepted_session->fill_len++;
-	
 	/* 错误码 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x15\x04" , 2 ); p_accepted_session->fill_len += 2 ;
-	
 	/* 固定1个字节 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x23 ; p_accepted_session->fill_len++;
-	
 	/* 固定5个字节 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x32\x38\x30\x30\x30" , 5 ); p_accepted_session->fill_len += 5 ;
-	
 	/* 出错信息 */
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "Access denied for user '%s' (using password: YES)" , p_env->user ) ; p_accepted_session->fill_len += len+1 ;
 	
@@ -186,6 +172,7 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 	return 0;
 }
 
+/* 填充转发端发给客户端的认证成功分组 */
 int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
 	int		len ;
@@ -195,19 +182,14 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
-	
 	/* 状态标识 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* 影响行数 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* LastInsertId */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	
 	/* 状态 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x02\x00" , 2 ); p_accepted_session->fill_len += 2 ;
-	
 	/* 消息 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x00\x00" , 2 ); p_accepted_session->fill_len += 2 ;
 	
@@ -222,17 +204,93 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	return 0;
 }
 
+/* 选择指定服务端转发库的服务器 */
+static int SelectMysqlServer( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , struct ForwardInstance *p_forward_instance , struct ForwardSession **pp_forward_session )
+{
+	struct ForwardServer	*p_forward_server = NULL ;
+	struct ForwardSession	forward_session ;
+	struct ForwardSession	*p_forward_session = NULL ;
+	
+	/* 遍历所有服务器 */
+	lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
+	{
+		if( ! lk_list_empty( & (p_forward_server->unused_forward_session_list) ) )
+		{
+			/* 如果有缓存会话，则复用之 */
+			p_forward_session = lk_list_first_entry( & (p_forward_server->unused_forward_session_list) , struct ForwardSession , unused_forward_session_listnode ) ;
+			lk_list_del_init( & (p_forward_session->unused_forward_session_listnode) );
+			lk_list_add_tail( & (p_forward_session->forward_session_listnode) , & (p_forward_server->forward_session_list) );
+			DEBUGLOG( "move p_forward_session[0x%X] from unused_forward_session_list to forward_session_list" , p_forward_session );
+			
+			AddForwardSessionEpollInput( p_env , p_forward_session );
+			
+			break;
+		}
+		else
+		{
+			/* 如果没有缓存会话，生成一个新会话 */
+			memset( & forward_session , 0x00 , sizeof(struct ForwardSession) );
+			forward_session.type = SESSIONTYPE_FORWARDSESSION ;
+			forward_session.p_forward_instance = p_forward_instance ;
+			forward_session.p_forward_server = p_forward_server ;
+			forward_session.p_pair_accepted_session = p_accepted_session ;
+			
+			forward_session.mysql_connection = mysql_init( NULL ) ;
+			if( forward_session.mysql_connection == NULL )
+			{
+				ERRORLOG( "mysql_init failed , errno[%d]" , errno );
+				return 1;
+			}
+			
+			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , forward_session.p_forward_instance->instance , forward_session.p_forward_server->netaddr.ip , forward_session.p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			if( mysql_real_connect( forward_session.mysql_connection , forward_session.p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , forward_session.p_forward_server->netaddr.port , NULL , 0 ) == NULL )
+			{
+				ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , forward_session.p_forward_instance->instance , forward_session.p_forward_server->netaddr.ip , forward_session.p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(forward_session.mysql_connection) , mysql_error(forward_session.mysql_connection) );
+			}
+			else
+			{
+				INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , forward_session.p_forward_instance->instance , forward_session.mysql_connection->net.fd , forward_session.p_forward_server->netaddr.ip , forward_session.p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+				
+				p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
+				if( p_forward_session == NULL )
+				{
+					ERRORLOG( "malloc failed , errno[%d]" , errno );
+					return 1;
+				}
+				else
+				{
+					DEBUGLOG( "malloc ok , p_forward_session[%p]" , p_forward_session );
+				}
+				memcpy( p_forward_session , & forward_session , sizeof(struct ForwardSession) );
+				p_accepted_session->p_pair_forward_session = p_forward_session ;
+				
+				lk_list_add_tail( & (p_forward_session->forward_session_listnode) , & (p_forward_server->forward_session_list) );
+				
+				AddForwardSessionEpollInput( p_env , p_forward_session );
+				
+				break;
+			}
+		}
+	}
+	if( & (p_forward_server->forward_session_list) == & (p_forward_instance->forward_server_list) )
+	{
+		ERRORLOG( "all mysql_real_connect failed" );
+		return 1;
+	}
+	
+	(*pp_forward_session) = p_forward_session ;
+	return 0;
+}
+
+/* 处理选择服务端转发库分组 */
 int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
-	char			library[ MAXLEN_LIBRARY + 1 ] ;
-	int			library_len ;
-	struct ForwardSession	*p_forward_session = NULL ;
-	unsigned long		hash_val = 0 ;
-	struct ForwardInstance	*p_forward_instance = NULL ;
-	struct ForwardServer	*p_first_forward_server = NULL ;
 	struct ForwardLibrary	forward_library ;
+	int			library_len ;
+	unsigned long		hash_val = 0 ;
 	struct ForwardLibrary	*p_forward_library = NULL ;
-	signed char		new_forward_session_flag ;
+	struct ForwardInstance	*p_forward_instance = NULL ;
+	struct ForwardInstance	*p_travel_forward_instance = NULL ;
 	
 	int			fd ;
 	char			*p_date_time_string = NULL ;
@@ -241,112 +299,24 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	
 	int			nret = 0 ;
 	
+	/* 计算服务端转发规则 */
 	if( p_accepted_session->comm_body_len-1 > MAXLEN_LIBRARY )
 	{
 		ERRORLOG( "library[%.*s] too long" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
 		return 1;
 	}
-	memset( library , 0x00 , sizeof(library) );
-	sprintf( library , "%.*s" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
-	library_len = strlen(library) ;
-	
-	if( p_accepted_session->p_pair_forward_session == NULL )
-	{
-		new_forward_session_flag = 1 ;
-		
-		p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
-		if( p_forward_session == NULL )
-		{
-			ERRORLOG( "malloc failed , errno[%d]" , errno );
-			return 1;
-		}
-		else
-		{
-			INFOLOG( "malloc ok , p_forward_session[%p]" , p_forward_session );
-		}
-		memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
-		
-		p_accepted_session->p_pair_forward_session = p_forward_session ;
-		
-		p_forward_session->type = SESSIONTYPE_FORWARDSESSION ;
-		p_accepted_session->p_pair_forward_session = p_forward_session ;
-		p_forward_session->p_pair_accepted_session = p_accepted_session ;
-	}
-	else
-	{
-		new_forward_session_flag = 0 ;
-		
-		p_forward_session = p_accepted_session->p_pair_forward_session ;
-	}
-	
 	memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
-	strcpy( forward_library.library , library );
+	snprintf( forward_library.library , sizeof(forward_library.library) , "%.*s" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
+	library_len = strlen(forward_library.library) ;
 	p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
 	if( p_forward_library == NULL )
 	{
-		hash_val = CalcHash( library , library_len ) % (p_env->total_power) ;
-		INFOLOG( "library[%s] total_power[%d] hash_val[%d]" , library , p_env->total_power , hash_val );
+		/* 历史中没有该规则，新建之 */
+		hash_val = CalcHash( forward_library.library , library_len ) % (p_env->total_power) ;
+		INFOLOG( "library[%s] total_power[%d] hash_val[%d]" , forward_library.library , p_env->total_power , hash_val );
 		p_forward_instance = QueryForwardSerialRangeTreeNode( p_env , hash_val ) ;
-		INFOLOG( "library[%s] p_forward_instance[%p][%s]" , library , p_forward_instance , (p_forward_instance?p_forward_instance->instance:"") );
-	}
-	else
-	{
-		p_forward_instance = p_forward_library->p_forward_instance ;
-	}
-	
-	if( p_forward_session->p_forward_instance != p_forward_instance )
-	{
-		p_forward_session->p_forward_instance = p_forward_instance ;
+		INFOLOG( "library[%s] p_forward_instance[%p][%s]" , forward_library.library , p_forward_instance , (p_forward_instance?p_forward_instance->instance:"") );
 		
-		if( p_forward_session->mysql_connection )
-		{
-			DeleteForwardSessionEpoll( p_env , p_forward_session );
-			INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_forward_session->p_forward_instance->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port );
-			mysql_close( p_forward_session->mysql_connection );
-		}
-		
-		p_forward_session->mysql_connection = mysql_init( NULL ) ;
-		if( p_forward_session->mysql_connection == NULL )
-		{
-			ERRORLOG( "mysql_init failed , errno[%d]" , errno );
-			return 1;
-		}
-		
-		p_forward_session->p_forward_server = lk_list_first_entry( & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
-		p_first_forward_server = p_forward_session->p_forward_server ;
-		while(1)
-		{
-			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_session->p_forward_instance->instance , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
-			if( mysql_real_connect( p_forward_session->mysql_connection , p_forward_session->p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_session->p_forward_server->netaddr.port , NULL , 0 ) == NULL )
-			{
-				ERRORLOG( "[%s] mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_session->p_forward_instance->instance , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(p_forward_session->mysql_connection) , mysql_error(p_forward_session->mysql_connection) );
-			}
-			else
-			{
-				INFOLOG( "[%s] #%d# mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_session->p_forward_instance->instance , p_forward_session->mysql_connection->net.fd , p_forward_session->p_forward_server->netaddr.ip , p_forward_session->p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
-				break;
-			}
-			
-			lk_list_move_tail( & (p_forward_session->p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
-			
-			p_forward_session->p_forward_server = lk_list_first_entry( & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
-			if( p_forward_session->p_forward_server == p_first_forward_server )
-			{
-				ERRORLOG( "all mysql_real_connect failed" );
-				return 1;
-			}
-		}
-		
-		if( new_forward_session_flag == 1 )
-		{
-			lk_list_add_tail( & (p_forward_session->forward_session_listnode) , & (p_forward_session->p_forward_server->forward_session_list) );
-		}
-		
-		AddForwardSessionEpollInput( p_env , p_forward_session );
-	}
-	
-	if( p_forward_library == NULL )
-	{
 		p_forward_library = (struct ForwardLibrary *)malloc( sizeof(struct ForwardLibrary) ) ;
 		if( p_forward_library == NULL )
 		{
@@ -355,9 +325,8 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		}
 		memset( p_forward_library , 0x00 , sizeof(struct ForwardLibrary) );
 		
-		strcpy( p_forward_library->library , library );
-		p_forward_library->p_forward_instance = p_forward_session->p_forward_instance ;
-		
+		strcpy( p_forward_library->library , forward_library.library );
+		p_forward_library->p_forward_instance = p_forward_instance ;
 		nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
 		if( nret )
 		{
@@ -370,6 +339,9 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 			INFOLOG( "LinkForwardLibraryTreeNode ok , library[%s] instance[%s]" , p_forward_library->library , p_forward_library->p_forward_instance->instance );
 		}
 		
+		IncreaseForwardInstanceTreeNodePower( p_env , p_forward_library->p_forward_instance );
+		
+		/* 持久化规则到硬盘 */
 		fd = open( p_env->save_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
 		if( fd == -1 )
 		{
@@ -388,19 +360,54 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		
 		close( fd );
 		
-		AddForwardInstanceTreeNodePower( p_env , p_forward_instance );
-		
-		p_forward_instance = NULL ;
+		/* 输出服务端库权重到日志 */
+		p_travel_forward_instance = NULL ;
 		while(1)
 		{
-			p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
-			if( p_forward_instance == NULL )
+			p_travel_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_travel_forward_instance ) ;
+			if( p_travel_forward_instance == NULL )
 				break;
 			
-			INFOLOG( "instance[%s] serial_range_begin[%lu] power[%lu]\n" , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
+			INFOLOG( "instance[%s] serial_range_begin[%lu] power[%lu]" , p_travel_forward_instance->instance , p_travel_forward_instance->serial_range_begin , p_travel_forward_instance->power );
 		}
 		
 		INFOLOG( "total_power[%ld]" , p_env->total_power );
+	}
+	else
+	{
+		p_forward_instance = p_forward_library->p_forward_instance ;
+	}
+	
+	if( p_accepted_session->p_pair_forward_session == NULL )
+	{
+		/* 如果还没有服务端转发会话 与客户端连接会话 关联，直接挑选mysql服务器 */
+		INFOLOG( "p_pair_forward_session null" );
+		
+		nret = SelectMysqlServer( p_env , p_accepted_session , p_forward_instance , & (p_accepted_session->p_pair_forward_session) ) ;
+		if( nret )
+		{
+			ERRORLOG( "SelectMysqlServer failed" );
+			return 1;
+		}
+	}
+	else if( p_accepted_session->p_pair_forward_session->p_forward_instance != p_forward_instance )
+	{
+		/* 如果有服务端转发会话 与客户端连接会话 关联，且新老转发库不一致，则先把当前转发会话移到缓存中 */
+		INFOLOG( "p_pair_forward_session not null" );
+		
+		lk_list_del_init( & (p_accepted_session->p_pair_forward_session->forward_session_listnode) );
+		p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp = time(NULL) + p_env->unused_forward_session_timeout ;
+		lk_list_add_tail( & (p_accepted_session->p_pair_forward_session->unused_forward_session_listnode) , & (p_accepted_session->p_pair_forward_session->p_forward_server->unused_forward_session_list) );
+		INFOLOG( "move p_forward_session[0x%X] [%d] from forward_session_list to unused_forward_session_list" , p_accepted_session->p_pair_forward_session , p_accepted_session->p_pair_forward_session->close_unused_forward_session_timestamp );
+		
+		DeleteForwardSessionEpoll( p_env , p_accepted_session->p_pair_forward_session );
+		
+		nret = SelectMysqlServer( p_env , p_accepted_session , p_forward_instance , & (p_accepted_session->p_pair_forward_session) ) ;
+		if( nret )
+		{
+			ERRORLOG( "SelectMysqlServer failed" );
+			return 1;
+		}
 	}
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
@@ -408,8 +415,7 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
-	
-	/* 存储索引 */
+	/* 存储库实例名 */
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library->p_forward_instance->instance ) ; p_accepted_session->fill_len += len+1 ;
 	
 	/* 最后 填充通讯头 */

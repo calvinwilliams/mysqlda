@@ -13,6 +13,11 @@ STRUCT	mysqlda_conf
 		STRING 40	db
 	}
 	
+	STRUCT	session_pool
+	{
+		INT 4		unused_forward_session_timeout
+	}
+	
 	STRUCT	forwards	ARRAY	1000
 	{
 		STRING 20	instance

@@ -106,6 +106,10 @@ typedef struct
 	} auth ;
 	struct
 	{
+		int	unused_forward_session_timeout ;
+	} session_pool ;
+	struct
+	{
 		char	instance[ 20 + 1 ] ;
 		struct
 		{
