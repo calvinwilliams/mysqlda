@@ -3,6 +3,13 @@
 static void usage()
 {
 	printf( "USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]\n" );
+	printf( "                -v\n" );
+	return;
+}
+
+static void version()
+{
+	printf( "mysqlda v0.0.4.0\n" );
 	return;
 }
 
@@ -41,6 +48,11 @@ int main( int argc , char *argv[] )
 		else if( strcmp( argv[i] , "-a" ) == 0 && i + 1 < argc )
 		{
 			p_env->action = argv[++i] ;
+		}
+		else if( strcmp( argv[i] , "-v" ) == 0 )
+		{
+			version();
+			exit(0);
 		}
 	}
 	if( p_env->action == NULL )

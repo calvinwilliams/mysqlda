@@ -162,6 +162,10 @@ struct MysqldaEnvironment
 	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ; /* 数据库名 */
 	time_t			unused_forward_session_timeout ; /* 服务端转发会话缓存会话池超时时间 */
 	
+	char			handshake_head[ 4 ] ; /* 模拟握手信息头 */
+	int			handshake_message_length ; /* 模拟握手信息体长 */
+	char			*handshake_message ; /* 模拟握手信息体 */
+	
 	struct rb_root		forward_instance_rbtree ; /* 服务端转发库 树（实例名为排序索引） */
 	struct rb_root		forward_serial_range_rbtree ; /* 服务端转发库 树（开始序号为排序索引） */
 	unsigned long		total_power ; /* 总权重 */
@@ -240,6 +244,7 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 
 int LinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
 struct ForwardInstance *QueryForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
+struct ForwardInstance *TravelForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
 void UnlinkForwardInstanceTreeNode( struct MysqldaEnvironment *p_env , struct ForwardInstance *p_forward_instance );
 void DestroyForwardInstanceTree( struct MysqldaEnvironment *p_env );
 

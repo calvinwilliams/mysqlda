@@ -3,10 +3,14 @@
 /* 填充转发端发给客户端的握手分组 */
 int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
+	char		*p = NULL ;
+#if 0
 	int		len ;
+#endif
 	
 	GenerateRandomDataWithoutNull( p_accepted_session->random_data , 20 );
 	
+#if 0
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
 	
@@ -46,6 +50,17 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+#endif
+	memcpy( p_accepted_session->comm_buffer , p_env->handshake_message , 4+p_env->handshake_message_length );
+	p_accepted_session->comm_body_len = p_env->handshake_message_length ;
+	
+	p = p_accepted_session->comm_buffer + 3 + 1 + 1 ;
+	p += strlen(p) + 1 ;
+	p += 4 ;
+	memcpy( p , p_accepted_session->random_data , 8 ); p += 8 ;
+	p += 1 + 2 + 1 + 2 + 2 + 1 + 10 ;
+	memcpy( p , p_accepted_session->random_data+8 , 12 );
+	
 	p_accepted_session->process_len = 0 ;
 	
 	return 0;

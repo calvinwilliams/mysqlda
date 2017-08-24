@@ -12,6 +12,7 @@
 
 LINK_RBTREENODE_STRING( LinkForwardInstanceTreeNode , struct MysqldaEnvironment , forward_instance_rbtree , struct ForwardInstance , forward_instance_rbnode , instance )
 QUERY_RBTREENODE_STRING( QueryForwardInstanceTreeNode , struct MysqldaEnvironment , forward_instance_rbtree , struct ForwardInstance , forward_instance_rbnode , instance )
+TRAVEL_RBTREENODE( TravelForwardInstanceTreeNode , struct MysqldaEnvironment , forward_instance_rbtree , struct ForwardInstance , forward_instance_rbnode )
 UNLINK_RBTREENODE( UnlinkForwardInstanceTreeNode , struct MysqldaEnvironment , forward_instance_rbtree , struct ForwardInstance , forward_instance_rbnode )
 DESTROY_RBTREE( DestroyForwardInstanceTree , struct MysqldaEnvironment , forward_instance_rbtree , struct ForwardInstance , forward_instance_rbnode , NULL )
 

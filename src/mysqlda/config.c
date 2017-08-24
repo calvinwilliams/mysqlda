@@ -163,6 +163,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			
 			strcpy( p_forward_server->netaddr.ip , p_conf->forwards[forwards_no].forward[forward_no].ip );
 			p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
+			SETNETADDRESS( p_forward_server->netaddr );
 			
 			INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
 			INIT_LK_LIST_HEAD( & (p_forward_server->unused_forward_session_list) );
