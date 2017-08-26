@@ -19,7 +19,7 @@ int main()
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;

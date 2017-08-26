@@ -9,22 +9,21 @@
 
 static void usage()
 {
-	printf( "USAGE : mysqlda_test_select_library begin_seqno end_seqno\n" );
+	printf( "USAGE : mysqlda_test_set_correl_object correl_object_class correl_object library\n" );
 	return;
 }
 
 int main( int argc , char *argv[] )
 {
 	MYSQL		*conn = NULL ;
-	int		begin_seqno ;
-	int		end_seqno ;
-	int		seqno ;
-	char		seqno_buffer[ 20 + 1 ] ;
+	char		*correl_object_class = NULL ;
+	char		*correl_object = NULL ;
+	char		*library = NULL ;
 	char		instance[ 20 + 1 ] ;
 	
 	int		nret = 0 ;
 	
-	if( argc != 1 + 2 )
+	if( argc != 1 + 3 )
 	{
 		usage();
 		exit(7);
@@ -49,24 +48,20 @@ int main( int argc , char *argv[] )
 		printf( "mysql_real_connect ok\n" );
 	}
 	
-	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
-	begin_seqno = atoi(argv[1]) ;
-	end_seqno = atoi(argv[2]) ;
-	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
+	correl_object_class = argv[1] ;
+	correl_object = argv[2] ;
+	library = argv[3] ;
+	memset( instance , 0x00 , sizeof(instance) );
+	nret = mysql_set_correl_object( conn , correl_object_class , correl_object , library , instance , sizeof(instance) ) ;
+	if( nret )
 	{
-		snprintf( seqno_buffer , sizeof(seqno_buffer) , "%d" , seqno );
-		memset( instance , 0x00 , sizeof(instance) );
-		nret = mysql_select_library( conn , seqno_buffer , instance , sizeof(instance) ) ;
-		if( nret )
-		{
-			printf( "mysql_select_library failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
-			mysql_close( conn );
-			return 1;
-		}
-		else
-		{
-			printf( "mysql_select_library ok , seqno_buffer[%s] instance[%s]\n" , seqno_buffer , instance );
-		}
+		printf( "mysql_set_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		mysql_close( conn );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_set_correl_object ok , instance[%s]\n" , instance );
 	}
 	
 	mysql_close( conn );

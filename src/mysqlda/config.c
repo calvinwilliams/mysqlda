@@ -75,21 +75,32 @@ void IncreaseForwardInstanceTreeNodePower( struct MysqldaEnvironment *p_env , st
 /* 装载配置文件 */
 int LoadConfig( struct MysqldaEnvironment *p_env )
 {
-	char			*file_buffer = NULL ;
-	int			file_size ;
-	mysqlda_conf		*p_conf = NULL ;
-	int			forwards_no ;
-	struct ForwardInstance	*p_forward_instance = NULL ;
-	int			serial_range_begin ;
-	int			forward_no ;
-	struct ForwardServer	*p_forward_server = NULL ;
+	char				*file_buffer = NULL ;
+	int				file_size ;
+	mysqlda_conf			*p_conf = NULL ;
+	int				forwards_no ;
+	struct ForwardInstance		*p_forward_instance = NULL ;
+	int				serial_range_begin ;
+	int				forward_no ;
+	struct ForwardServer		*p_forward_server = NULL ;
 	
-	FILE			*fp = NULL ;
-	struct ForwardLibrary	forward_library ;
-	struct ForwardInstance	forward_instance ;
-	struct ForwardLibrary	*p_forward_library = NULL ;
+	FILE				*fp = NULL ;
+	struct ForwardLibrary		forward_library ;
+	struct ForwardInstance		forward_instance ;
+	struct ForwardLibrary		*p_forward_library = NULL ;
 	
-	int			nret = 0 ;
+	char				etc_pathname[ 256 + 1 ] ;
+	DIR				*dp = NULL ;
+	struct dirent			*dtp = NULL ;
+	char				mysqlda_str[ 64 + 1 ] ;
+	char				correl_object_class[ MAXLEN_CORRELOBJECT_CLASS + 1 ] ;
+	char				save_str[ 64 + 1 ] ;
+	struct ForwardCorrelObjectClass	*p_forward_correl_object_class = NULL ;
+	char				forward_correl_object_class_pathfilename[ 256 + 1 ] ;
+	struct ForwardCorrelObject	forward_correl_object ;
+	struct ForwardCorrelObject	*p_forward_correl_object = NULL ;
+	
+	int				nret = 0 ;
 	
 	/* 读入配置 */
 	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
@@ -241,6 +252,98 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		}
 		
 		fclose( fp );
+	}
+	
+	/* 装载服务端转发关联规则历史 持久化文件 */
+	memset( etc_pathname , 0x00 , sizeof(etc_pathname) );
+	snprintf( etc_pathname , sizeof(etc_pathname)-1 , "%s/etc" , getenv("HOME") );
+	dp = opendir( etc_pathname ) ;
+	if( dp )
+	{
+		while( ( dtp = readdir(dp) ) )
+		{
+			if( strcmp(dtp->d_name,".") && strcmp(dtp->d_name,"..") )
+			{
+				memset( mysqlda_str , 0x00 , sizeof(mysqlda_str) );
+				memset( correl_object_class , 0x00 , sizeof(correl_object_class) );
+				memset( save_str , 0x00 , sizeof(save_str) );
+				sscanf( dtp->d_name , "%[^.].%[^.].%[^.]" , mysqlda_str , correl_object_class , save_str );
+				if( strcmp(mysqlda_str,"mysqlda") == 0 && strcmp(save_str,"save") == 0 )
+				{
+					p_forward_correl_object_class = (struct ForwardCorrelObjectClass *)malloc( sizeof(struct ForwardCorrelObjectClass) ) ;
+					if( p_forward_correl_object_class == NULL )
+					{
+						ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+						closedir( dp );
+						return -1;
+					}
+					memset( p_forward_correl_object_class , 0x00 , sizeof(struct ForwardCorrelObjectClass) );
+					
+					strcpy( p_forward_correl_object_class->correl_object_class , correl_object_class );
+					
+					nret = LinkForwardCorrelObjectClassTreeNode( p_env , p_forward_correl_object_class ) ;
+					if( nret )
+					{
+						ERRORLOG( "*** ERROR : LinkForwardCorrelObjectClassTreeNode failed[%d]" , nret );
+						closedir( dp );
+						return -1;
+					}
+					
+					memset( forward_correl_object_class_pathfilename , 0x00 , sizeof(forward_correl_object_class_pathfilename) );
+					snprintf( forward_correl_object_class_pathfilename , sizeof(forward_correl_object_class_pathfilename)-1 , "%s/etc/%s" , getenv("HOME") , dtp->d_name );
+					fp = fopen( forward_correl_object_class_pathfilename , "r" ) ;
+					if( fp == NULL )
+					{
+						ERRORLOG( "*** ERROR : fopen[%s] failed , errno[%d]" , forward_correl_object_class_pathfilename , errno );
+						closedir( dp );
+						return -1;
+					}
+					
+					while(1)
+					{
+						memset( & forward_correl_object , 0x00 , sizeof(struct ForwardCorrelObject) );
+						memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
+						if( fscanf( fp , "%*s%*s%s%s\n" , forward_correl_object.correl_object , forward_library.library ) == EOF )
+							break;
+						if( forward_correl_object.correl_object[0] == '\0' || forward_library.library[0] == '\0' )
+							break;
+						
+						p_forward_correl_object = (struct ForwardCorrelObject *)malloc( sizeof(struct ForwardCorrelObject) ) ;
+						if( p_forward_correl_object == NULL )
+						{
+							ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+							fclose( fp );
+							closedir( dp );
+							return -1;
+						}
+						memset( p_forward_correl_object , 0x00 , sizeof(struct ForwardCorrelObject) );
+						
+						strcpy( p_forward_correl_object->correl_object , forward_correl_object.correl_object );
+						
+						p_forward_correl_object->p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
+						if( p_forward_correl_object->p_forward_library == NULL )
+						{
+							ERRORLOG( "*** ERROR : instance[%s] not found in %s" , forward_instance.instance , p_env->save_filename );
+							fclose( fp );
+							closedir( dp );
+							return -1;
+						}
+						
+						nret = LinkForwardCorrelObjectTreeNode( p_forward_correl_object_class , p_forward_correl_object ) ;
+						if( nret )
+						{
+							ERRORLOG( "*** ERROR : LinkForwardCorrelObjectTreeNode[%s][%s] failed[%d]" , p_forward_correl_object_class->correl_object_class , p_forward_correl_object->correl_object , nret );
+							fclose( fp );
+							return -1;
+						}
+					}
+					
+					fclose( fp );
+				}
+			}
+		}
+		
+		closedir( dp );
 	}
 	
 	INFOLOG( "Load %s ok" , p_env->save_filename );
@@ -485,7 +588,9 @@ void UnloadConfig( struct MysqldaEnvironment *p_env )
 		}
 	}
 	
+	/*
 	DestroyForwardLibraryTree( p_env );
+	*/
 	
 	return;
 }

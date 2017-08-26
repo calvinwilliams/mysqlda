@@ -455,6 +455,10 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	struct ForwardLibrary		forward_library ;
 	struct ForwardLibrary		*p_forward_library = NULL ;
 	
+	char				correl_object_class_save_pathfilename[ 256 + 1 ] ;
+	int				fd ;
+	char				*p_date_time_string = NULL ;
+	
 	int				len ;
 	
 	int				nret = 0 ;
@@ -544,7 +548,38 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	else
 	{
 		INFOLOG( "library[%.*s] found" , library_len , library );
-		p_forward_correl_object->p_forward_library = p_forward_library ;
+		
+		if( p_forward_correl_object->p_forward_library == NULL )
+		{
+			/* 持久化关联规则到硬盘 */
+			memset( correl_object_class_save_pathfilename , 0x00 , sizeof(correl_object_class_save_pathfilename) );
+			snprintf( correl_object_class_save_pathfilename , sizeof(correl_object_class_save_pathfilename)-1 , "mysqlda.%s.save" , p_forward_correl_object_class->correl_object_class );
+			fd = open( correl_object_class_save_pathfilename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+			if( fd == -1 )
+			{
+				ERRORLOG( "open[%s] failed[%d]" , p_env->save_filename , nret );
+				p_forward_library = NULL ;
+			}
+			else
+			{
+				p_date_time_string = GetLogLastDateTimeStringPtr() ;
+				write( fd , p_date_time_string , strlen(p_date_time_string) );
+				write( fd , " " , 1 );
+				write( fd , p_forward_correl_object->correl_object , strlen(p_forward_correl_object->correl_object) );
+				write( fd , " " , 1 );
+				write( fd , p_forward_library->library , strlen(p_forward_library->library) );
+				write( fd , "\n" , 1 );
+				
+				close( fd );
+				
+				p_forward_correl_object->p_forward_library = p_forward_library ;
+			}
+		}
+		else
+		{
+			if( p_forward_correl_object->p_forward_library != p_forward_library )
+				p_forward_library = NULL ;
+		}
 	}
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
@@ -555,7 +590,7 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	/* 状态标识 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = ( p_forward_library?0x00:0xFF ) ; p_accepted_session->fill_len++;
 	/* 存储库实例名 */
-	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library?(p_forward_library->p_forward_instance->instance):"" ) ; p_accepted_session->fill_len += len+1 ;
+	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , (p_forward_library?(p_forward_library->p_forward_instance->instance):"") ) ; p_accepted_session->fill_len += len+1 ;
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;

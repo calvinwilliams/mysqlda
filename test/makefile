@@ -11,11 +11,15 @@ c_FILE		=	\
 			mysqlda_test_connect.c \
 			mysqlda_test_select_library.c \
 			mysqlda_test_insert.c \
+			mysqlda_test_set_correl_object.c \
+			mysqlda_test_select_library_by_correl_object.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
 BIN		=	mysqlda_test_connect \
 			mysqlda_test_select_library \
+			mysqlda_test_set_correl_object \
+			mysqlda_test_select_library_by_correl_object \
 
 #			mysqlda_test_insert \
 
@@ -52,4 +56,10 @@ mysqlda_test_connect	:	mysqlda_test_connect.o
 
 mysqlda_test_select_library	:	mysqlda_test_select_library.o
 	$(CC) -o $@ mysqlda_test_select_library.o $(LFLAGS)
+
+mysqlda_test_set_correl_object	:	mysqlda_test_set_correl_object.o
+	$(CC) -o $@ mysqlda_test_set_correl_object.o $(LFLAGS)
+
+mysqlda_test_select_library_by_correl_object	:	mysqlda_test_select_library_by_correl_object.o
+	$(CC) -o $@ mysqlda_test_select_library_by_correl_object.o $(LFLAGS)
 

@@ -13,6 +13,7 @@
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <sys/wait.h>
+#include <dirent.h>
 
 #include "LOGC.h"
 #include "lk_list.h"

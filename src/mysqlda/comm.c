@@ -95,7 +95,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 		p_accepted_session->process_len = 0 ;
 		
 		/* 如果未计算出mysql协议体长度，则计算之 */
-		if( p_accepted_session->fill_len > 3 && p_accepted_session->comm_body_len == 0 )
+		if( p_accepted_session->fill_len >= 4 && p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = MYSQL_COMMLEN(p_accepted_session->comm_buffer) ;
 			DEBUGHEXLOG( recv_base , len , "recv #%d# [%d]bytes ok , comm_body_len[%d]" , p_accepted_session->netaddr.sock , len , p_accepted_session->comm_body_len );
@@ -105,7 +105,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				INFOLOG( "mysql client close socket" );
 				return 1;
 			}
-			else if( p_accepted_session->comm_buffer[4] == 0x79 )
+			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x79 )
 			{
 				char		*library = NULL ;
 				int		library_len ;
@@ -119,13 +119,20 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				
 				nret = SelectDatabaseLibrary( p_env , p_accepted_session , library , library_len ) ;
 				if( nret )
+				{
+					ERRORLOG( "SelectDatabaseLibrary failed[%d]" , nret );
 					return 1;
+				}
+				else
+				{
+					DEBUGLOG( "SelectDatabaseLibrary ok" );
+				}
 				
 				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 				
 				return 0;
 			}
-			else if( p_accepted_session->comm_buffer[4] == 0x80 )
+			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x80 )
 			{
 				char		*correl_object_class = NULL ;
 				int		correl_object_class_len ;
@@ -151,13 +158,20 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				
 				nret = SetDatabaseCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len , library , library_len ) ;
 				if( nret )
+				{
+					ERRORLOG( "SetDatabaseCorrelObject failed[%d]" , nret );
 					return 1;
+				}
+				else
+				{
+					DEBUGLOG( "SetDatabaseCorrelObject ok" );
+				}
 				
 				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 				
 				return 0;
 			}
-			else if( p_accepted_session->comm_buffer[4] == 0x81 )
+			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x81 )
 			{
 				char		*correl_object_class = NULL ;
 				int		correl_object_class_len ;
@@ -181,7 +195,14 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				
 				nret = SelectDatabaseLibraryByCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len ) ;
 				if( nret )
+				{
+					ERRORLOG( "SelectDatabaseLibraryByCorrelObject failed[%d]" , nret );
 					return 1;
+				}
+				else
+				{
+					DEBUGLOG( "SelectDatabaseLibraryByCorrelObject ok" );
+				}
 				
 				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 				
