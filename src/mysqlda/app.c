@@ -297,11 +297,10 @@ static int SelectMysqlServer( struct MysqldaEnvironment *p_env , struct Accepted
 	return 0;
 }
 
-/* 处理选择服务端转发库分组 */
-int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
+/* 查询 服务端转发库分组 */
+int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *library , int library_len )
 {
 	struct ForwardLibrary	forward_library ;
-	int			library_len ;
 	unsigned long		hash_val = 0 ;
 	struct ForwardLibrary	*p_forward_library = NULL ;
 	struct ForwardInstance	*p_forward_instance = NULL ;
@@ -314,15 +313,15 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	
 	int			nret = 0 ;
 	
-	/* 计算服务端转发规则 */
-	if( p_accepted_session->comm_body_len-1 > MAXLEN_LIBRARY )
+	/* 提取参数 */
+	if( library_len > MAXLEN_LIBRARY )
 	{
-		ERRORLOG( "library[%.*s] too long" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
+		ERRORLOG( "library[%.*s] too long" , library_len , library );
 		return 1;
 	}
-	memset( & forward_library , 0x00 , sizeof(struct ForwardLibrary) );
-	snprintf( forward_library.library , sizeof(forward_library.library) , "%.*s" , p_accepted_session->comm_body_len-1 , p_accepted_session->comm_buffer+5 );
-	library_len = strlen(forward_library.library) ;
+	strcpy( forward_library.library , library );
+	
+	/* 查询服务端转发规则 */
 	p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
 	if( p_forward_library == NULL )
 	{
@@ -430,8 +429,196 @@ int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	
 	/* 序号 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
+	/* 状态标识 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
 	/* 存储库实例名 */
 	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library->p_forward_instance->instance ) ; p_accepted_session->fill_len += len+1 ;
+	
+	/* 最后 填充通讯头 */
+	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
+	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
+	
+	return 0;
+}
+
+/* 设置 关联对象对应的服务端转发库 */
+int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object , int correl_object_len , char *library , int library_len )
+{
+	struct ForwardCorrelObjectClass	forward_correl_object_class ;
+	struct ForwardCorrelObjectClass	*p_forward_correl_object_class = NULL ;
+	struct ForwardCorrelObject	forward_correl_object ;
+	struct ForwardCorrelObject	*p_forward_correl_object = NULL ;
+	struct ForwardLibrary		forward_library ;
+	struct ForwardLibrary		*p_forward_library = NULL ;
+	
+	int				len ;
+	
+	int				nret = 0 ;
+	
+	/* 提取参数 */
+	if( correl_object_class_len > MAXLEN_CORRELOBJECT_CLASS )
+	{
+		ERRORLOG( "correl_object_class[%.*s] too long" , correl_object_class_len , correl_object_class );
+		return 1;
+	}
+	strcpy( forward_correl_object_class.correl_object_class , correl_object_class );
+	
+	if( correl_object_len > MAXLEN_CORRELOBJECT )
+	{
+		ERRORLOG( "correl_object[%.*s] too long" , correl_object_len , correl_object );
+		return 1;
+	}
+	strcpy( forward_correl_object.correl_object , correl_object );
+	
+	if( library_len > MAXLEN_CORRELOBJECT )
+	{
+		ERRORLOG( "library[%.*s] too long" , library_len , library );
+		return 1;
+	}
+	strcpy( forward_library.library , library );
+	
+	/* 查询服务端转发关联对象类树 */
+	p_forward_correl_object_class = QueryForwardCorrelObjectClassTreeNode( p_env , & forward_correl_object_class ) ;
+	if( p_forward_correl_object_class == NULL )
+	{
+		/* 创建服务端转发关联对象类 */
+		p_forward_correl_object_class = (struct ForwardCorrelObjectClass *)malloc( sizeof(struct ForwardCorrelObjectClass) ) ;
+		if( p_forward_correl_object_class == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno );
+			return 1;
+		}
+		memset( p_forward_correl_object_class , 0x00 , sizeof(struct ForwardCorrelObjectClass) );
+		strcpy( p_forward_correl_object_class->correl_object_class , correl_object_class );
+		
+		/* 挂接服务端转发关联对象类 */
+		nret = LinkForwardCorrelObjectClassTreeNode( p_env , p_forward_correl_object_class ) ;
+		if( nret )
+		{
+			ERRORLOG( "LinkForwardCorrelObjectClassTreeNode failed[%d]" , nret );
+			return 1;
+		}
+		else
+		{
+			DEBUGLOG( "LinkForwardCorrelObjectClassTreeNode ok" );
+		}
+	}
+	
+	/* 查询服务端转发关联对象树 */
+	p_forward_correl_object = QueryForwardCorrelObjectTreeNode( p_forward_correl_object_class , & forward_correl_object ) ;
+	if( p_forward_correl_object == NULL )
+	{
+		/* 创建服务端转发关联对象 */
+		p_forward_correl_object = (struct ForwardCorrelObject *)malloc( sizeof(struct ForwardCorrelObject) ) ;
+		if( p_forward_correl_object == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno );
+			return 1;
+		}
+		memset( p_forward_correl_object , 0x00 , sizeof(struct ForwardCorrelObject) );
+		strcpy( p_forward_correl_object->correl_object , correl_object );
+		
+		/* 挂接服务端转发关联对象 */
+		nret = LinkForwardCorrelObjectTreeNode( p_forward_correl_object_class , p_forward_correl_object ) ;
+		if( nret )
+		{
+			ERRORLOG( "LinkForwardCorrelObjectTreeNode failed[%d]" , nret );
+			return 1;
+		}
+		else
+		{
+			DEBUGLOG( "LinkForwardCorrelObjectTreeNode ok" );
+		}
+	}
+	
+	/* 查询服务端转发规则树 */
+	p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
+	if( p_forward_library == NULL )
+	{
+		ERRORLOG( "library[%.*s] not found" , library_len , library );
+	}
+	else
+	{
+		INFOLOG( "library[%.*s] found" , library_len , library );
+		p_forward_correl_object->p_forward_library = p_forward_library ;
+	}
+	
+	/* 初始化通讯缓冲区，跳过通讯头 */
+	p_accepted_session->fill_len = 3 ;
+	
+	/* 序号 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
+	/* 状态标识 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = ( p_forward_library?0x00:0xFF ) ; p_accepted_session->fill_len++;
+	/* 存储库实例名 */
+	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library?(p_forward_library->p_forward_instance->instance):"" ) ; p_accepted_session->fill_len += len+1 ;
+	
+	/* 最后 填充通讯头 */
+	len = p_accepted_session->fill_len - 3 - 1 ;
+	p_accepted_session->comm_body_len = len ;
+	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
+	
+	return 0;
+}
+
+/* 查询 关联对象对应的服务端转发库分组 */
+int SelectDatabaseLibraryByCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object , int correl_object_len )
+{
+	struct ForwardCorrelObjectClass	forward_correl_object_class ;
+	struct ForwardCorrelObjectClass	*p_forward_correl_object_class = NULL ;
+	struct ForwardCorrelObject	forward_correl_object ;
+	struct ForwardCorrelObject	*p_forward_correl_object = NULL ;
+	char				*p_instance = NULL ;
+	
+	int				len ;
+	
+	/* 提取参数 */
+	if( correl_object_class_len > MAXLEN_CORRELOBJECT_CLASS )
+	{
+		ERRORLOG( "correl_object_class[%.*s] too long" , correl_object_class_len , correl_object_class );
+		return 1;
+	}
+	strcpy( forward_correl_object_class.correl_object_class , correl_object_class );
+	
+	if( correl_object_len > MAXLEN_CORRELOBJECT )
+	{
+		ERRORLOG( "correl_object[%.*s] too long" , correl_object_len , correl_object );
+		return 1;
+	}
+	strcpy( forward_correl_object.correl_object , correl_object );
+	
+	/* 查询服务端转发关联对象类树 */
+	p_forward_correl_object_class = QueryForwardCorrelObjectClassTreeNode( p_env , & forward_correl_object_class ) ;
+	if( p_forward_correl_object_class )
+	{
+		/* 查询服务端转发关联对象树 */
+		p_forward_correl_object = QueryForwardCorrelObjectTreeNode( p_forward_correl_object_class , & forward_correl_object ) ;
+		if( p_forward_correl_object )
+		{
+			if( p_forward_correl_object->p_forward_library )
+			{
+				p_instance = p_forward_correl_object->p_forward_library->p_forward_instance->instance ;
+				INFOLOG( "select instance[%s]" , p_instance );
+			}
+		}
+	}
+	
+	/* 初始化通讯缓冲区，跳过通讯头 */
+	p_accepted_session->fill_len = 3 ;
+	
+	/* 序号 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
+	/* 状态标识 */
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = ( p_instance?0x00:0xFF ) ; p_accepted_session->fill_len++;
+	/* 存储库实例名 */
+	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_instance?p_instance:"" ) ; p_accepted_session->fill_len += len+1 ;
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;

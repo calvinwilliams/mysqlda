@@ -107,13 +107,84 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 			}
 			else if( p_accepted_session->comm_buffer[4] == 0x79 )
 			{
+				char		*library = NULL ;
+				int		library_len ;
+				
+				if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
+					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+				
+				library = p_accepted_session->comm_buffer + 5 ;
+				library_len = p_accepted_session->comm_body_len - 1 ;
+				INFOLOG( "select library[%.*s]" , library_len , library );
+				
+				nret = SelectDatabaseLibrary( p_env , p_accepted_session , library , library_len ) ;
+				if( nret )
+					return 1;
+				
+				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				
+				return 0;
+			}
+			else if( p_accepted_session->comm_buffer[4] == 0x80 )
+			{
+				char		*correl_object_class = NULL ;
+				int		correl_object_class_len ;
+				char		*correl_object = NULL ;
+				int		correl_object_len ;
+				char		*library = NULL ;
+				int		library_len ;
+				
+				correl_object_class = p_accepted_session->comm_buffer + 5 ;
+				correl_object_class_len = strlen(correl_object_class) ;
+				INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
+				
+				correl_object = correl_object_class + correl_object_class_len + 1 ;
+				correl_object_len = strlen(correl_object) ;
+				INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
+				
+				library = correl_object + correl_object_len + 1 ;
+				library_len = strlen(library) ;
+				INFOLOG( "select library[%.*s]" , library_len , library );
+				
+				if( correl_object_class_len+1+correl_object_len+1+library_len+1 > p_accepted_session->comm_body_len-1 )
+					return 1;
+				
+				nret = SetDatabaseCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len , library , library_len ) ;
+				if( nret )
+					return 1;
+				
+				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				
+				return 0;
+			}
+			else if( p_accepted_session->comm_buffer[4] == 0x81 )
+			{
+				char		*correl_object_class = NULL ;
+				int		correl_object_class_len ;
+				char		*correl_object = NULL ;
+				int		correl_object_len ;
+				
 				INFOLOG( "select library[%.100s]" , p_accepted_session->comm_buffer+5 );
 				if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
 					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
-				nret = DatabaseSelectLibrary( p_env , p_accepted_session ) ;
+				
+				correl_object_class = p_accepted_session->comm_buffer + 5 ;
+				correl_object_class_len = strlen(correl_object_class) ;
+				INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
+				
+				correl_object = correl_object_class + correl_object_class_len + 1 ;
+				correl_object_len = strlen(correl_object) ;
+				INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
+				
+				if( correl_object_class_len+1+correl_object_len+1 > p_accepted_session->comm_body_len-1 )
+					return 1;
+				
+				nret = SelectDatabaseLibraryByCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len ) ;
 				if( nret )
 					return 1;
+				
 				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				
 				return 0;
 			}
 		}

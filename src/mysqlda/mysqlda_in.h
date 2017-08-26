@@ -138,15 +138,38 @@ struct ForwardInstance
 	struct rb_node		forward_serial_range_rbnode ; /* 开始序号 树节点 */
 } ;
 
-/* 服务端转发规则历史 结构 */
+/* 服务端转发规则 结构 */
 #define MAXLEN_LIBRARY		64
 
 struct ForwardLibrary
 {
 	char			library[ MAXLEN_LIBRARY + 1 ] ; /* 核心业务对象 值 */
-	struct rb_node		forward_library_rbnode ; /* 树节点 */
-	
 	struct ForwardInstance	*p_forward_instance ; /* 对应 服务端转发库 */
+	
+	struct rb_node		forward_library_rbnode ; /* 树节点 */
+} ;
+
+/* 服务端转发关联对象 结构 */
+#define MAXLEN_CORRELOBJECT	64
+
+struct ForwardCorrelObject
+{
+	char			correl_object[ MAXLEN_CORRELOBJECT + 1 ] ; /* 核心业务关联对象名 */
+	struct ForwardLibrary	*p_forward_library ; /* 服务端转发规则 */
+	
+	struct rb_node		forward_correl_object_rbnode ; /* 树节点 */
+} ;
+
+#define MAXLEN_CORRELOBJECT_CLASS	64
+
+/* 服务端转发关联对象类 结构 */
+struct ForwardCorrelObjectClass
+{
+	char			correl_object_class[ MAXLEN_CORRELOBJECT_CLASS + 1 ] ; /* 核心业务关联对象类 */
+	
+	struct rb_root		forward_correl_object_rbtree ; /* 服务端转发关联对象 类-对象 关系树 */
+	
+	struct rb_node		forward_correl_object_class_rbnode ; /* 树节点 */
 } ;
 
 /* MySQL分布式代理 环境结构 */
@@ -175,7 +198,8 @@ struct MysqldaEnvironment
 	
 	int			epoll_fd ; /* epoll描述字 */
 	
-	struct rb_root		forward_library_rbtree ; /* 服务端转发规则历史 树 */
+	struct rb_root		forward_library_rbtree ; /* 服务端转发规则 历史树 */
+	struct rb_root		forward_correl_object_class_rbtree ; /* 服务端转发关联对象类 历史树 */
 } ;
 
 /*
@@ -236,7 +260,9 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int DatabaseSelectLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *library , int library_len );
+int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object_name , int correl_object_name_len , char *library , int library_len );
+int SelectDatabaseLibraryByCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object_name , int correl_object_name_len );
 
 /*
  * rbtree
@@ -258,6 +284,16 @@ int LinkForwardLibraryTreeNode( struct MysqldaEnvironment *p_env , struct Forwar
 struct ForwardLibrary *QueryForwardLibraryTreeNode( struct MysqldaEnvironment *p_env , struct ForwardLibrary *p_forward_library );
 void UnlinkForwardLibraryTreeNode( struct MysqldaEnvironment *p_env , struct ForwardLibrary *p_forward_library );
 void DestroyForwardLibraryTree( struct MysqldaEnvironment *p_env );
+
+int LinkForwardCorrelObjectClassTreeNode( struct MysqldaEnvironment *p_env , struct ForwardCorrelObjectClass *p_forward_correl_object_class );
+struct ForwardCorrelObjectClass *QueryForwardCorrelObjectClassTreeNode( struct MysqldaEnvironment *p_env , struct ForwardCorrelObjectClass *p_forward_correl_object_class );
+void UnlinkForwardCorrelObjectClassTreeNode( struct MysqldaEnvironment *p_env , struct ForwardCorrelObjectClass *p_forward_correl_object_class );
+void DestroyForwardCorrelObjectClassTree( struct MysqldaEnvironment *p_env );
+
+int LinkForwardCorrelObjectTreeNode( struct ForwardCorrelObjectClass *p_forward_correl_object_class , struct ForwardCorrelObject *p_forward_correl_object );
+struct ForwardCorrelObject *QueryForwardCorrelObjectTreeNode( struct ForwardCorrelObjectClass *p_forward_correl_object_class , struct ForwardCorrelObject *p_forward_correl_object );
+void UnlinkForwardCorrelObjectTreeNode( struct ForwardCorrelObjectClass *p_forward_correl_object_class , struct ForwardCorrelObject *p_forward_correl_object );
+void DestroyForwardCorrelObjectTree( struct ForwardCorrelObjectClass *p_forward_correl_object_class );
 
 #ifdef __cplusplus
 }

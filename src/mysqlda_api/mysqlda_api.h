@@ -17,6 +17,9 @@ extern "C" {
 
 int STDCALL mysql_select_library( MYSQL *mysql , const char *library , char *instance , int instance_bufsize );
 
+int STDCALL mysql_set_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , const char *library , char *instance , int instance_bufsize );
+int STDCALL mysql_select_library_by_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , char *instance , int instance_bufsize );
+
 #ifdef __cplusplus
 }
 #endif

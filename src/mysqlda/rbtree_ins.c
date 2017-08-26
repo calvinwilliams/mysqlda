@@ -45,3 +45,13 @@ QUERY_RBTREENODE_STRING( QueryForwardLibraryTreeNode , struct MysqldaEnvironment
 UNLINK_RBTREENODE( UnlinkForwardLibraryTreeNode , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode )
 DESTROY_RBTREE( DestroyForwardLibraryTree , struct MysqldaEnvironment , forward_library_rbtree , struct ForwardLibrary , forward_library_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
 
+LINK_RBTREENODE_STRING( LinkForwardCorrelObjectClassTreeNode , struct MysqldaEnvironment , forward_correl_object_class_rbtree , struct ForwardCorrelObjectClass , forward_correl_object_class_rbnode , correl_object_class )
+QUERY_RBTREENODE_STRING( QueryForwardCorrelObjectClassTreeNode , struct MysqldaEnvironment , forward_correl_object_class_rbtree , struct ForwardCorrelObjectClass , forward_correl_object_class_rbnode , correl_object_class )
+UNLINK_RBTREENODE( UnlinkForwardCorrelObjectClassTreeNode , struct MysqldaEnvironment , forward_correl_object_class_rbtree , struct ForwardCorrelObjectClass , forward_correl_object_class_rbnode )
+DESTROY_RBTREE( DestroyForwardCorrelObjectClassTree , struct MysqldaEnvironment , forward_correl_object_class_rbtree , struct ForwardCorrelObjectClass , forward_correl_object_class_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
+
+LINK_RBTREENODE_STRING( LinkForwardCorrelObjectTreeNode , struct ForwardCorrelObjectClass , forward_correl_object_rbtree , struct ForwardCorrelObject , forward_correl_object_rbnode , correl_object )
+QUERY_RBTREENODE_STRING( QueryForwardCorrelObjectTreeNode , struct ForwardCorrelObjectClass , forward_correl_object_rbtree , struct ForwardCorrelObject , forward_correl_object_rbnode , correl_object )
+UNLINK_RBTREENODE( UnlinkForwardCorrelObjectTreeNode , struct ForwardCorrelObjectClass , forward_correl_object_rbtree , struct ForwardCorrelObject , forward_correl_object_rbnode )
+DESTROY_RBTREE( DestroyForwardCorrelObjectTree , struct ForwardCorrelObjectClass , forward_correl_object_rbtree , struct ForwardCorrelObject , forward_correl_object_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
+
