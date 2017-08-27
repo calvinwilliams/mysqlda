@@ -11,7 +11,7 @@ c_FILE		=	\
 			mysqlda_api.c \
 
 ###### 目标文件、安装目录配置区
-include makeinstall
+include ../makeinstall
 LIB		=	libmysqlda_api.so
 LIBINST		=	$(_LIBINST)
 HDER		= \
