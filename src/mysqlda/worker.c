@@ -5,8 +5,12 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	struct AcceptedSession	*p_accepted_session = NULL ;
 	struct ForwardInstance	*p_forward_instance = NULL ;
 	MYSQL			*mysql_connection = NULL ;
+	int			sock ;
+	int			len , length ;
 	struct ForwardServer	*p_forward_server = NULL ;
 	struct ForwardSession	*p_forward_session = NULL ;
+	struct ForwardSession	*p_unused_forward_session = NULL ;
+	struct ForwardSession	*p_next_unused_forward_session = NULL ;
 	struct epoll_event	event ;
 	struct epoll_event	events[ 1024 ] ;
 	int			epoll_nfds ;
@@ -14,6 +18,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	struct epoll_event	*p_event = NULL ;
 	char			pipe_data ;
 	int			exit_flag ;
+	time_t			now_timestamp ;
 	
 	int			nret = 0 ;
 	
@@ -104,7 +109,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		INFOLOG( "epoll_ctl #%d# add listen_session #%d# ok" , p_env->epoll_fd , p_env->listen_session.netaddr.sock );
 	}
 	
-	/* 连接后端数据库 */
+	/* 检查所有后端数据库连接 */
 	while(1)
 	{
 		p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
@@ -124,7 +129,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		{
 			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
 			mysql_close( mysql_connection );
-			return -2;
+			return -1;
 		}
 		else
 		{
@@ -135,6 +140,71 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		mysql_close( mysql_connection );
 	}
 	
+	/* 骗到握手信息头 */
+	sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+	if( sock == -1 )
+	{
+		ERRORLOG( "socket failed , errno[%d]" , errno );
+		return -1;
+	}
+	
+	p_forward_instance = TravelForwardInstanceTreeNode( p_env , NULL ) ;
+	p_forward_server = lk_list_first_entry( & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
+	nret = connect( sock , (struct sockaddr *) & (p_forward_server->netaddr.addr) , sizeof(struct sockaddr) ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "connect failed , errno[%d]" , errno );
+		return -1;
+	}
+	
+	length = 0 ;
+	while( length < 4 )
+	{
+		len = recv( sock , p_env->handshake_head+length , 4-length , 0 ) ;
+		if( len == -1 )
+		{
+			ERRORLOG( "recv failed , errno[%d]" , errno );
+			return -1;
+		}
+		else if( len == 0 )
+		{
+			ERRORLOG( "recv close , errno[%d]" , errno );
+			return -1;
+		}
+		
+		length += len ;
+	}
+	DEBUGHEXLOG( p_env->handshake_head , 4 , "handshake_head" );
+	
+	p_env->handshake_message_length = MYSQL_COMMLEN( p_env->handshake_head ) ;
+	p_env->handshake_message = (char*)malloc( 4+p_env->handshake_message_length ) ;
+	if( p_env->handshake_message == NULL )
+	{
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	memcpy( p_env->handshake_message , p_env->handshake_head , 4 );
+	
+	length = 0 ;
+	while( length < p_env->handshake_message_length )
+	{
+		len = recv( sock , p_env->handshake_message+4+length , p_env->handshake_message_length-length , 0 ) ;
+		if( len == -1 )
+		{
+			ERRORLOG( "recv failed , errno[%d]" , errno );
+			return -1;
+		}
+		else if( len == 0 )
+		{
+			ERRORLOG( "recv close , errno[%d]" , errno );
+			return -1;
+		}
+		
+		length += len ;
+	}
+	DEBUGHEXLOG( p_env->handshake_message , 4+p_env->handshake_message_length , "handshake_message" );
+	
+	/* 子进程主循环 */
 	exit_flag = 0 ;
 	while( ! exit_flag )
 	{
@@ -348,7 +418,37 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				}
 			}
 		}
+		
+		/* 清理超时的 服务端转发会话 缓存会话 */
+		now_timestamp = time(NULL) ;
+		p_forward_instance = NULL ;
+		while(1)
+		{
+			p_forward_instance = TravelForwardSerialRangeTreeNode( p_env , p_forward_instance ) ;
+			if( p_forward_instance == NULL )
+				break;
+			
+			lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
+			{
+				lk_list_for_each_entry_safe( p_unused_forward_session , p_next_unused_forward_session , & (p_forward_server->unused_forward_session_list) , struct ForwardSession , unused_forward_session_listnode )
+				{
+					if( now_timestamp >= p_unused_forward_session->close_unused_forward_session_timestamp )
+					{
+						INFOLOG( "[%s] #%d# mysql_close[%s][%d] ok" , p_unused_forward_session->p_forward_instance->instance , p_unused_forward_session->mysql_connection->net.fd , p_unused_forward_session->p_forward_server->netaddr.ip , p_unused_forward_session->p_forward_server->netaddr.port );
+						mysql_close( p_unused_forward_session->mysql_connection );
+						p_unused_forward_session->mysql_connection = NULL ;
+						
+						lk_list_del( & (p_unused_forward_session->unused_forward_session_listnode) );
+						
+						free( p_unused_forward_session );
+					}
+				}
+			}
+		}
 	}
+	
+	/* 释放握手信息 */
+	free( p_env->handshake_message );
 	
 	/* 关闭epoll池 */
 	close( p_env->epoll_fd );
@@ -365,6 +465,7 @@ int worker( void *pv )
 	
 	SetLogPid();
 	
+	/* 装载配置 */
 	nret = LoadConfig( p_env ) ;
 	if( nret )
 	{
@@ -372,8 +473,10 @@ int worker( void *pv )
 		return 1;
 	}
 	
+	/* 进入子进程主函数 */
 	nret = _worker( p_env ) ;
 	
+	/* 卸载配置 */
 	UnloadConfig( p_env );
 	
 	INFOLOG( "worker exit ..." );

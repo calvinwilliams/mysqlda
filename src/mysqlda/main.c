@@ -3,6 +3,13 @@
 static void usage()
 {
 	printf( "USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]\n" );
+	printf( "                -v\n" );
+	return;
+}
+
+static void version()
+{
+	printf( "mysqlda v0.0.5.0\n" );
 	return;
 }
 
@@ -16,12 +23,14 @@ int main( int argc , char *argv[] )
 	
 	memset( p_env , 0x00 , sizeof(struct MysqldaEnvironment) );
 	
+	/* 不带参数执行则显示命令行语法 */
 	if( argc == 1 )
 	{
 		usage();
 		exit(7);
 	}
 	
+	/* 解析命令行参数 */
 	for( i = 0 ; i < argc ; i++ )
 	{
 		if( strcmp( argv[i] , "-f" ) == 0 && i + 1 < argc )
@@ -39,6 +48,11 @@ int main( int argc , char *argv[] )
 		else if( strcmp( argv[i] , "-a" ) == 0 && i + 1 < argc )
 		{
 			p_env->action = argv[++i] ;
+		}
+		else if( strcmp( argv[i] , "-v" ) == 0 )
+		{
+			version();
+			exit(0);
 		}
 	}
 	if( p_env->action == NULL )
@@ -63,18 +77,22 @@ int main( int argc , char *argv[] )
 		p_env->save_filename = save_pathfilename ;
 	}
 	
+	/* 执行行为 */
 	if( STRCMP( p_env->action , == , "init" ) )
 	{
+		/* 创建缺省配置文件 */
 		return -InitConfigFile( p_env );
 	}
 	else if( STRCMP( p_env->action , == , "start" ) )
 	{
 		if( p_env->no_daemon_flag )
 		{
+			/* 非守护进程方式启动 */
 			nret = monitor( p_env ) ;
 		}
 		else
 		{
+			/* 守护进程方式启动 */
 			nret = BindDaemonServer( & monitor , (void*)p_env , 1 ) ;
 		}
 		

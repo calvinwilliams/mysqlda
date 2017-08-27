@@ -4,6 +4,7 @@
 #define AddAcceptedSessionEpollOutput(_p_env_,_p_accepted_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLOUT | EPOLLERR ; \
@@ -23,6 +24,7 @@
 #define ModifyAcceptedSessionEpollInput(_p_env_,_p_accepted_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLIN | EPOLLERR ; \
@@ -42,6 +44,7 @@
 #define ModifyAcceptedSessionEpollOutput(_p_env_,_p_accepted_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLOUT | EPOLLERR ; \
@@ -61,6 +64,7 @@
 #define ModifyAcceptedSessionEpollError(_p_env_,_p_accepted_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLERR ; \
@@ -79,6 +83,8 @@
 
 #define DeleteAcceptedSessionEpoll(_p_env_,_p_accepted_session_) \
 	{ \
+		int			nret = 0 ; \
+		\
 		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_DEL , (_p_accepted_session_)->netaddr.sock , NULL ) ; \
 		if( nret == -1 ) \
 		{ \
@@ -94,6 +100,7 @@
 #define AddForwardSessionEpollInput(_p_env_,_p_forward_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLIN | EPOLLERR ; \
@@ -113,6 +120,7 @@
 #define ModifyForwardSessionEpollInput(_p_env_,_p_forward_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLIN | EPOLLERR ; \
@@ -132,6 +140,7 @@
 #define ModifyForwardSessionEpollOutput(_p_env_,_p_forward_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLOUT | EPOLLERR ; \
@@ -151,6 +160,7 @@
 #define ModifyForwardSessionEpollError(_p_env_,_p_forward_session_) \
 	{ \
 		struct epoll_event	event ; \
+		int			nret = 0 ; \
 		\
 		memset( & event , 0x00 , sizeof(struct epoll_event) ); \
 		event.events = EPOLLERR ; \
@@ -169,6 +179,8 @@
 
 #define DeleteForwardSessionEpoll(_p_env_,_p_forward_session_) \
 	{ \
+		int			nret = 0 ; \
+		\
 		nret = epoll_ctl( (_p_env_)->epoll_fd , EPOLL_CTL_DEL , (_p_forward_session_)->mysql_connection->net.fd , NULL ) ; \
 		if( nret == -1 ) \
 		{ \

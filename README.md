@@ -1,5 +1,7 @@
 mysqlda - MySQL distribute proxy base on core-business-object
 =============================================================
 
-waiting for writing
+Waiting for writing in english
+or
+See README.zh-CN.md in chinese
 
