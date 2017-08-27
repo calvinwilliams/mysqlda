@@ -52,7 +52,7 @@ mysqlda优势：
 
 * 以核心业务对象切分方式的所有好处。
 * 单体系统的数据分布式改造过程尽量无感
-* 支持以核心业务对象查询分配库（如开户用手机号或邮箱），也支持核心业务对象的关联对象（如开户后的用户ID、用户名、账号）查询MySQL归属库。
+* 支持以核心业务对象查询MySQL归属库（如开户用手机号或邮箱），也支持核心业务对象的关联对象（如开户后的用户ID、用户名、账号）查询MySQL归属库。
 * 归属库分配权重自动调整，扩容后新库与老库的分配权重也自动调整，无需人工介入，使得所有库的数据量尽量自动均衡增长。
 * 核心业务对象切分的库支持MySQL服务器优先列表，提高系统可用性。
 * 与MySQL服务器之间连接池机制实现连接复用和闲置清理，提高连接和切换效率。
@@ -74,13 +74,13 @@ MySQL数据库集群预创建相同的连接用户名、密码，相同的数据库名和应用表结构，mysqlda
 
 应用服务器调用标准MySQL连接函数/方法连接mysqlda，mysqlda会遵循MySQL通讯协议处理MySQL用户登录和密码校验。
 
-登录成功后，所有DML操作前，应用服务器调用mysqlda提供的定制函数/方法发送**核心业务对象**（forward\_library）或**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object），mysqlda会查询其已分配的MySQL库**核心业务对象**（forward\_library）或**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表（forward\_servers list）中选择一个服务器及其连接池（unused\_forward\_session list）中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外（accepted\_session）和对内（forward\_session）连接结对，开始处理后续所有DML操作。
+登录成功后，所有DML操作前，应用服务器调用mysqlda提供的定制函数/方法发送**核心业务对象**或**关联对象类**、**关联对象**，mysqlda会查询其已分配的MySQL库**核心业务对象**或**关联对象类**、**关联对象**（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表中选择一个服务器及其连接池中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外和对内连接结对，开始处理后续所有DML操作。
 
 后续DML操作中可以也调用mysqlda提供的函数/方法发送**核心业务对象**或**关联对象类、关联对象**改变与新的MySQL归属库服务器连接。
 
 MySQL归属库对应一个数据库服务器列表，如由MySQL数据库1A(MASTER)、1B(SLAVE)、1C(SLAVE)、1D(SLAVE)组成，1A同步复制数据给1B、1C和1D，如果1A出现故障不能被mysqlda连接，mysqlda会依次尝试连接1B、1C和1D，实现系统可用性。
 
-应用服务器调用mysqlda提供的定制函数/方法发送**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）和**核心业务对象**的设置关系接口给mysqlda，mysqlda会保存该关系并持久化到保存文件中，供以后直接用**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）定位MySQL归属库。
+应用服务器调用mysqlda提供的定制函数/方法发送**关联对象类**、**关联对象**和**核心业务对象**的设置关系接口给mysqlda，mysqlda会保存该关系并持久化到保存文件中，供以后直接用**关联对象类**、**关联对象**定位MySQL归属库。
 
 ## 2.3. 内部数据实体和关系
 
@@ -88,7 +88,11 @@ MySQL归属库对应一个数据库服务器列表，如由MySQL数据库1A(MASTER)、1B(SLAVE)、1C(SL
 
 一个**核心业务对象**（forward\_library）可以对应多个**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）。
 
-一个**核心业务对象**或一个**关联对象类、关联对象**对应一个**MySQL归属库**（forward\_library），一个**MySQL归属库**对应一个**MySQL数据库服务器有序列表**（forward\_servers list），一个**MySQL数据库服务器有序列表**（forward\_servers list）下辖一个**空闲连接池**（unused\_forward\_session list）和一个**工作连接池**（forward\_session list）。
+一个**核心业务对象**或一个**关联对象类、关联对象**对应一个**MySQL归属库**（forward\_library）。
+
+一个**MySQL归属库**对应一个**MySQL数据库服务器有序列表**（forward\_servers list）。
+
+一个**MySQL数据库服务器有序列表**（forward\_servers list）下辖一个**空闲连接池**（unused\_forward\_session list）和一个**工作连接池**（forward\_session list）。
 
 accepted\_session是mysqlda与应用服务器之间的通讯会话，forward\_session是mysqlda与MySQL数据库服务器之间的通讯会话，一旦一条连接上的MySQL归属库被选定或切换，这两个会话会被桥接起来。
 
