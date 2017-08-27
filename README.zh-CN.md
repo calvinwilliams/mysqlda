@@ -11,11 +11,28 @@ mysqlda - MySQL数据库中间件
     - [2.2. 工作原理](#22-工作原理)
     - [2.3. 内部数据实体和关系](#23-内部数据实体和关系)
 - [3. 安装部署](#3-安装部署)
+    - [3.1. 解开mysqlda源码包 或 直接从源码托管地址克隆最新版](#31-解开mysqlda源码包-或-直接从源码托管地址克隆最新版)
+    - [3.2. 进入src目录，清理中间文件](#32-进入src目录，清理中间文件)
+    - [3.3. 编译](#33-编译)
+    - [3.4. 安装目标文件到缺省目标目录](#34-安装目标文件到缺省目标目录)
 - [4. 配置使用](#4-配置使用)
-- [5. 最后](#5-最后)
-    - [5.1. 后续研发](#51-后续研发)
-    - [5.2. 源码托管](#52-源码托管)
-    - [5.3. 作者邮箱](#53-作者邮箱)
+    - [4.1. 自动生成缺省配置文件](#41-自动生成缺省配置文件)
+    - [4.2. 启动mysqlda](#42-启动mysqlda)
+    - [4.3. 停止mysqlda](#43-停止mysqlda)
+    - [4.4. 扩容MySQL数据库集群](#44-扩容mysql数据库集群)
+        - [4.4.1. 增加MySQL归属库](#441-增加mysql归属库)
+        - [4.4.2. 调整MySQL归属库服务器列表](#442-调整mysql归属库服务器列表)
+- [5. 保存文件输出格式](#5-保存文件输出格式)
+    - [5.1. 核心业务对象-MySQL归属库 保存文件格式](#51-核心业务对象-mysql归属库-保存文件格式)
+    - [5.2. 关联对象类、关联对象-核心业务对象 保存文件格式](#52-关联对象类、关联对象-核心业务对象-保存文件格式)
+- [6. 开发接口](#6-开发接口)
+    - [6.1. 用核心业务对象选择MySQL归属库](#61-用核心业务对象选择mysql归属库)
+    - [6.2. 用关联对象类、关联对象绑定到核心业务对象](#62-用关联对象类、关联对象绑定到核心业务对象)
+    - [6.3. 用关联对象类、关联对象选择MySQL归属库](#63-用关联对象类、关联对象选择mysql归属库)
+- [7. 最后](#7-最后)
+    - [7.1. 后续研发](#71-后续研发)
+    - [7.2. 源码托管](#72-源码托管)
+    - [7.3. 作者邮箱](#73-作者邮箱)
 
 <!-- /TOC -->
 
@@ -74,9 +91,9 @@ MySQL数据库集群预创建相同的连接用户名、密码，相同的数据库名和应用表结构，mysqlda
 
 应用服务器调用标准MySQL连接函数/方法连接mysqlda，mysqlda会遵循MySQL通讯协议处理MySQL用户登录和密码校验。
 
-登录成功后，所有DML操作前，应用服务器调用mysqlda提供的定制函数/方法发送**核心业务对象**或**关联对象类**、**关联对象**，mysqlda会查询其已分配的MySQL库**核心业务对象**或**关联对象类**、**关联对象**（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表中选择一个服务器及其连接池中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外和对内连接结对，开始处理后续所有DML操作。
+登录成功后，所有DML操作前，应用服务器调用mysqlda提供的定制函数/方法发送**核心业务对象**或**关联对象类**、**关联对象**的选择MySQL归属库接口，mysqlda会查询其已分配的MySQL库**核心业务对象**或**关联对象类**、**关联对象**（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表中选择一个服务器及其连接池中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外和对内连接结对，开始处理后续所有DML操作。
 
-后续DML操作中可以也调用mysqlda提供的函数/方法发送**核心业务对象**或**关联对象类、关联对象**改变与新的MySQL归属库服务器连接。
+后续DML操作中可以也调用mysqlda提供的函数/方法发送**核心业务对象**或**关联对象类、关联对象**以调整MySQL归属库服务器连接。
 
 MySQL归属库对应一个数据库服务器列表，如由MySQL数据库1A(MASTER)、1B(SLAVE)、1C(SLAVE)、1D(SLAVE)组成，1A同步复制数据给1B、1C和1D，如果1A出现故障不能被mysqlda连接，mysqlda会依次尝试连接1B、1C和1D，实现系统可用性。
 
@@ -86,37 +103,680 @@ MySQL归属库对应一个数据库服务器列表，如由MySQL数据库1A(MASTER)、1B(SLAVE)、1C(SL
 
 ![images/data_entity_and_relation.png](images/data_entity_and_relation.png)
 
-一个**核心业务对象**（forward\_library）可以对应多个**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）。
-
-一个**核心业务对象**或一个**关联对象类、关联对象**对应一个**MySQL归属库**（forward\_library）。
-
-一个**MySQL归属库**对应一个**MySQL数据库服务器有序列表**（forward\_servers list）。
+一个**MySQL归属库**（forward\_instance）对应一个**MySQL数据库服务器有序列表**（forward\_servers list）。
 
 一个**MySQL数据库服务器有序列表**（forward\_servers list）下辖一个**空闲连接池**（unused\_forward\_session list）和一个**工作连接池**（forward\_session list）。
 
-accepted\_session是mysqlda与应用服务器之间的通讯会话，forward\_session是mysqlda与MySQL数据库服务器之间的通讯会话，一旦一条连接上的MySQL归属库被选定或切换，这两个会话会被桥接起来。
+一个**核心业务对象**可以对应一个或多个**关联对象类**（forward\_correl\_object\_class）、**关联对象**（forward\_correl\_object）。
+
+一个**核心业务对象**或一个**关联对象类、关联对象** 与 **MySQL归属库** 建立一个**归属关系**（forward\_library）。
+
+accepted\_session是**应用服务器与mysqlda之间的通讯会话**，forward\_session是**mysqlda与MySQL数据库服务器之间的通讯会话**，一旦一条连接上的MySQL归属库被选定或切换，这两个会话会被桥接起来。
 
 # 3. 安装部署
 
+mysqlda只依赖于mysql或mariadb，必须先安装好开发包*-devel-*。
 
+## 3.1. 解开mysqlda源码包 或 直接从源码托管地址克隆最新版
 
+```Shell
+$ git clone http://git.oschina.net/calvinwilliams/mysqlda
+Cloning into 'mysqlda'...
+remote: Counting objects: 355, done.
+remote: Compressing objects: 100% (345/345), done.
+remote: Total 355 (delta 221), reused 0 (delta 0)
+Receiving objects: 100% (355/355), 586.04 KiB | 0 bytes/s, done.
+Resolving deltas: 100% (221/221), done.
+```
+
+## 3.2. 进入src目录，清理中间文件
+
+```Shell
+$ cd mysqlda/src
+$ make -f makefile.Linux clean
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+rm -f lk_list.o
+rm -f rbtree.o
+rm -f LOGC.o
+rm -f fasterjson.o
+rm -f util.o
+rm -f rbtree_ins.o
+rm -f IDL_mysqlda_conf.dsc.o
+rm -f main.o
+rm -f config.o
+rm -f monitor.o
+rm -f worker.o
+rm -f comm.o
+rm -f app.o
+rm -f mysqlda
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+rm -f mysqlda_api.o
+rm -f libmysqlda_api.so
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+```
+
+## 3.3. 编译
+
+```Shell
+$ make -f makefile.Linux 
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c lk_list.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c rbtree.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c LOGC.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c fasterjson.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c util.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c rbtree_ins.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c IDL_mysqlda_conf.dsc.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c main.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c config.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c monitor.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c worker.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c comm.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c app.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda lk_list.o rbtree.o LOGC.o fasterjson.o util.o rbtree_ins.o IDL_mysqlda_conf.dsc.o main.o config.o monitor.o worker.o comm.o app.o -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient -lcrypto 
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_api.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o libmysqlda_api.so mysqlda_api.o -shared -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+```
+
+## 3.4. 安装目标文件到缺省目标目录
+
+```
+可执行文件 mysqlda $HOME/bin
+开发用头文件 mysqlda_api.h $HOME/include/mysqlda_api/
+开发用库文件 libmysqlda_api.so $HOME/lib/
+```
+
+目标目录定义在makeinstall里的，如果有需要可调整安装目标目录
+
+```
+_HDERBASE       =       $(HOME)/include/mysqlda_api
+_LIBBASE        =       $(HOME)/lib
+_BINBASE        =       $(HOME)/bin
+```
+
+```Shell
+$ make -f makefile.Linux install
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+cp -rf mysqlda /home/calvin/bin/
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+cp -rf libmysqlda_api.so /home/calvin/lib/
+cp -rf mysqlda_api.h /home/calvin/include/mysqlda_api/
+make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
+```
+
+查询版本号，也确认可执行文件OK
+
+```Shell
+$ mysqlda -v
+mysqlda v0.0.5.0
+```
 
 # 4. 配置使用
 
+## 4.1. 自动生成缺省配置文件
 
-# 5. 最后
+```Shell
+$ mysqlda -a init
+$ cat ~/etc/mysqlda.conf
+{
+        "server" : 
+        {
+                "listen_ip" : "127.0.0.1" ,
+                "listen_port" : 3306
+        } ,
+        "auth" : 
+        {
+                "user" : "calvin" ,
+                "pass" : "calvin" ,
+                "db" : "calvindb"
+        } ,
+        "session_pool" : 
+        {
+                "unused_forward_session_timeout" : 60
+        } ,
+        "forwards" : 
+        [
+        {
+                "instance" : "mysqlda1" ,
+                "forward" : 
+                [
+                {
+                        "ip" : "127.0.0.1" ,
+                        "port" : 13306
+                }
+                ]
+        }
+        ]
+}
+```
 
-## 5.1. 后续研发
+各配置项说明如下：
 
-* 增加JAVA支持。现在只支持C连接
+```
+server.listen_ip : mysqlda面向应用服务器的侦听IP
+server.listen_port : mysqlda面向应用服务器的侦听PORT
+auth.user : mysqlda面向应用服务器的登录认证用户名，也是mysqlda面向MySQL数据库服务器列表集群的登录认证用户名
+auth.pass : mysqlda面向应用服务器的登录认证用户密码，也是mysqlda面向MySQL数据库服务器列表集群的登录认证用户密码
+auth.db : mysqlda面向应用服务器的登录数据库，也是mysqlda面向MySQL数据库服务器列表集群的登录数据库
+session_pool.unused_forward_session_timeout : mysqlda面向MySQL数据库服务器列表集群的空闲连接池超时清理时间
+forwards[].instance : MySQL归属库ID
+forwards[].forward[].ip : MySQL归属库服务器IP
+forwards[].forward[].port : MySQL归属库服务器PORT
+```
+
+## 4.2. 启动mysqlda
+
+不带命令行参数直接执行mysqlda会得到完整参数列表
+
+```Shell
+$ mysqlda
+USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]
+                -v
+```
+
+根据实际环境修改完配置文件后启动
+
+```Shell
+$ mysqlda -a start
+```
+
+查询启动日志
+```Shell
+$ view ~/log/mysqlda.log
+2017-08-28 00:14:00.006735 | INFO  | 53148:config.c:349 | Load /home/calvin/etc/mysqlda.save ok
+2017-08-28 00:14:00.006742 | INFO  | 53148:config.c:359 | instance[0xb36180][mysql_data_1] serial_range_begin[0] power[3]
+2017-08-28 00:14:00.006752 | INFO  | 53148:config.c:363 |       ip[192.168.6.22] port[13306]
+2017-08-28 00:14:00.006756 | INFO  | 53148:config.c:359 | instance[0xb36260][mysql_data_2] serial_range_begin[3] power[9]
+2017-08-28 00:14:00.006759 | INFO  | 53148:config.c:363 |       ip[192.168.6.23] port[13306]
+2017-08-28 00:14:00.006761 | INFO  | 53148:config.c:367 | total_power[12]
+2017-08-28 00:14:00.006771 | INFO  | 53148:worker.c:38 | epoll_create ok , #1#
+2017-08-28 00:14:00.006777 | INFO  | 53148:worker.c:53 | epoll_ctl #1# add alive_pipe_session #0# ok
+2017-08-28 00:14:00.006787 | INFO  | 53148:worker.c:65 | socket ok , #2#
+2017-08-28 00:14:00.006797 | INFO  | 53148:worker.c:82 | bind[:3306] #2# ok
+2017-08-28 00:14:00.006804 | INFO  | 53148:worker.c:94 | listen[:3306] #2# ok
+2017-08-28 00:14:00.006807 | INFO  | 53148:worker.c:109 | epoll_ctl #1# add listen_session #2# ok
+2017-08-28 00:14:00.007439 | INFO  | 53148:worker.c:127 | [mysql_data_1]mysql_real_connect[192.168.6.22][13306][calvin][calvin][calvindb] connecting ...
+2017-08-28 00:14:00.009794 | INFO  | 53148:worker.c:136 | [mysql_data_1]mysql_real_connect[192.168.6.22][13306][calvin][calvin][calvindb] connecting ok
+2017-08-28 00:14:00.009815 | INFO  | 53148:worker.c:139 | [mysql_data_1]mysql_close[192.168.6.22][13306] ok
+2017-08-28 00:14:00.009885 | INFO  | 53148:worker.c:127 | [mysql_data_2]mysql_real_connect[192.168.6.23][13306][calvin][calvin][calvindb] connecting ...
+2017-08-28 00:14:00.011142 | INFO  | 53148:worker.c:136 | [mysql_data_2]mysql_real_connect[192.168.6.23][13306][calvin][calvin][calvindb] connecting ok
+2017-08-28 00:14:00.011159 | INFO  | 53148:worker.c:139 | [mysql_data_2]mysql_close[192.168.6.23][13306] ok
+2017-08-28 00:14:00.011731 | DEBUG | 53148:worker.c:177 | handshake_head
+             0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F    0123456789ABCDEF
+0x00000000   52 00 00 00                                       R...
+2017-08-28 00:14:00.011770 | DEBUG | 53148:worker.c:205 | handshake_message
+             0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F    0123456789ABCDEF
+0x00000000   52 00 00 00 0A 35 2E 35 2E 35 32 2D 4D 61 72 69   R....5.5.52-Mari
+0x00000010   61 44 42 00 C9 00 00 00 5C 7A 70 42 3B 3E 66 67   aDB.....\zpB;>fg
+0x00000020   00 FF F7 08 02 00 0F A0 15 00 00 00 00 00 00 00   ................
+0x00000030   00 00 00 52 44 3D 44 7B 64 62 3D 4B 3F 3A 45 00   ...RD=D{db=K?:E.
+0x00000040   6D 79 73 71 6C 5F 6E 61 74 69 76 65 5F 70 61 73   mysql_native_pas
+0x00000050   73 77 6F 72 64 00                                 sword.
+2017-08-28 00:14:00.011789 | INFO  | 53148:worker.c:212 | epoll_wait #1# ...
+2017-08-28 00:14:01.012977 | INFO  | 53148:worker.c:230 | epoll_wait #1# return[0]events
+2017-08-28 00:14:01.013061 | INFO  | 53148:worker.c:212 | epoll_wait #1# ...
+2017-08-28 00:14:02.027336 | INFO  | 53148:worker.c:230 | epoll_wait #1# return[0]events
+2017-08-28 00:14:02.027458 | INFO  | 53148:worker.c:212 | epoll_wait #1# ...
+2017-08-28 00:14:03.042497 | INFO  | 53148:worker.c:230 | epoll_wait #1# return[0]events
+2017-08-28 00:14:03.042621 | INFO  | 53148:worker.c:212 | epoll_wait #1# ...
+2017-08-28 00:14:04.046261 | INFO  | 53148:worker.c:230 | epoll_wait #1# return[0]events
+2017-08-28 00:14:04.046377 | INFO  | 53148:worker.c:212 | epoll_wait #1# ...
+```
+
+则表示启动成功
+
+如果mysqlda连接MySQL数据库集群有问题，启动初始化阶段会侦测出来
+
+```Shell
+2017-08-28 00:12:07.998008 | INFO  | 53069:monitor.c:69 | [53069]fork[53070] ok
+2017-08-28 00:12:07.997928 | INFO  | 53069:monitor.c:75 | [53069]fork[53070] ok
+2017-08-28 00:12:07.998430 | INFO  | 53070:config.c:349 | Load /home/calvin/etc/mysqlda.save ok
+2017-08-28 00:12:07.998438 | INFO  | 53070:config.c:359 | instance[0x20f1180][mysql_data_1] serial_range_begin[0] power[3]
+2017-08-28 00:12:07.998441 | INFO  | 53070:config.c:363 |       ip[192.168.6.22] port[13306]
+2017-08-28 00:12:07.998444 | INFO  | 53070:config.c:359 | instance[0x20f1260][mysql_data_2] serial_range_begin[3] power[9]
+2017-08-28 00:12:07.998447 | INFO  | 53070:config.c:363 |       ip[192.168.6.23] port[13306]
+2017-08-28 00:12:07.998450 | INFO  | 53070:config.c:367 | total_power[12]
+2017-08-28 00:12:07.998460 | INFO  | 53070:worker.c:38 | epoll_create ok , #1#
+2017-08-28 00:12:07.998466 | INFO  | 53070:worker.c:53 | epoll_ctl #1# add alive_pipe_session #0# ok
+2017-08-28 00:12:07.998476 | INFO  | 53070:worker.c:65 | socket ok , #2#
+2017-08-28 00:12:07.998487 | INFO  | 53070:worker.c:82 | bind[:3306] #2# ok
+2017-08-28 00:12:07.998517 | INFO  | 53070:worker.c:94 | listen[:3306] #2# ok
+2017-08-28 00:12:07.998522 | INFO  | 53070:worker.c:109 | epoll_ctl #1# add listen_session #2# ok
+2017-08-28 00:12:07.999329 | INFO  | 53070:worker.c:127 | [mysql_data_1]mysql_real_connect[192.168.6.22][13306][calvin][calvin][calvindb] connecting ...
+2017-08-28 00:12:11.044823 | ERROR | 53070:worker.c:130 | [mysql_data_1]mysql_real_connect[192.168.6.22][13306][calvin][calvin][calvindb] failed , mysql_errno[2003][Can't connect to MySQL server on '192.168.6.22' (113)]
+2017-08-28 00:12:11.044946 | INFO  | 53070:worker.c:482 | worker exit ...
+```
+
+## 4.3. 停止mysqlda
+
+直接ps出来发送TERM信号即可，如果停不掉就发送KILL信号
+
+```Shell
+$ ps -ef | grep mysqlda
+calvin   53069     1  0 00:12 pts/1    00:00:00 mysqlda -a start
+calvin   53097 53072  0 00:12 pts/2    00:00:00 view mysqlda.log
+calvin   53111 52899  0 00:12 pts/1    00:00:00 grep --color=auto mysqlda
+$ kill 53069
+```
+
+## 4.4. 扩容MySQL数据库集群
+
+### 4.4.1. 增加MySQL归属库
+
+在配置文件mysqlda.conf中新增一个forwards[]，至少一个MySQL服务器forward，如以下新增了MySQL归属库mysql\_data\_3：
+
+```Shell
+        "forwards" : 
+        [
+                {
+                        "instance" : "mysql_data_1" ,
+                        "forward" : 
+                        [
+                        { "ip" : "192.168.6.11" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.12" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.13" , "port" : 13306 }
+                        ]
+                } ,
+                {
+                        "instance" : "mysql_data_2" ,
+                        "forward" : 
+                        [
+                        { "ip" : "192.168.6.21" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.22" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.23" , "port" : 13306 }
+                        ]
+                } ,
+                {
+                        "instance" : "mysql_data_3" ,
+                        "forward" : 
+                        [
+                        { "ip" : "192.168.6.31" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.32" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.33" , "port" : 13306 }
+                        ]
+                }
+        ]
+```
+
+发送USR1信号到mysqlda父进程。
+
+> 注意：产生存量保存信息后一般不会修改或删除MySQL归属库。
+
+### 4.4.2. 调整MySQL归属库服务器列表
+
+在配置文件mysqlda.conf中新增一个forwards[]，至少一个MySQL服务器forward，如以下每个MySQL归属库都增加了一台MySQL服务器：
+
+```Shell
+        "forwards" : 
+        [
+                {
+                        "instance" : "mysql_data_1" ,
+                        "forward" : 
+                        [
+                        { "ip" : "192.168.6.11" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.12" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.13" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.14" , "port" : 13306 }
+                        ]
+                } ,
+                {
+                        "instance" : "mysql_data_2" ,
+                        "forward" : 
+                        [
+                        { "ip" : "192.168.6.21" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.22" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.23" , "port" : 13306 } ,
+                        { "ip" : "192.168.6.24" , "port" : 13306 }
+                        ]
+                }
+        ]
+```
+
+发送USR1信号到mysqlda父进程。
+
+> 注意：理论上支持在一个MySQL归属库中修改和删除一台MySQL服务器，但会立即断开这台MySQL服务器的所有连接。
+
+# 5. 保存文件输出格式
+
+## 5.1. 核心业务对象-MySQL归属库 保存文件格式
+
+每个核心业务对象建立归属关系后都会输出其关系到保存文件
+
+文件名规则如下：
+
+```
+$HOME/etc/mysqlda.save
+```
+
+文件格式如下：
+
+```
+建立的日期 建立的时间 核心业务对象 MySQL归属库
+```
+
+示例如下：
+
+```
+2017-08-24 22:17:11 1 mysql_data_2
+2017-08-26 16:34:31 2 mysql_data_1
+2017-08-26 16:34:31 3 mysql_data_1
+2017-08-26 16:34:31 4 mysql_data_1
+2017-08-26 16:34:31 5 mysql_data_2
+2017-08-26 16:34:31 6 mysql_data_1
+2017-08-26 16:34:31 7 mysql_data_1
+2017-08-26 16:34:31 8 mysql_data_1
+2017-08-26 16:34:31 9 mysql_data_1
+2017-08-26 16:34:31 10 mysql_data_1
+```
+
+## 5.2. 关联对象类、关联对象-核心业务对象 保存文件格式
+
+每个关联对象类、关联对象和核心业务对象建立关系后都会输出其关系到保存文件
+
+文件名规则如下：
+
+```
+$HOME/etc/mysqlda.(关联对象类).save
+```
+
+文件格式如下：
+
+```
+建立的日期 建立的时间 关联对象 核心业务对象
+```
+
+示例如下：
+
+```
+2017-08-26 18:11:42 330001 2
+2017-08-26 18:12:41 330002 3
+```
+
+# 6. 开发接口
+
+项目主目录的test目录里是测试实例
+
+## 6.1. 用核心业务对象选择MySQL归属库
+
+该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库。
+
+主要用到了函数接口（新增MySQL通讯指令0x79）：
+
+```C
+int STDCALL mysql_select_library( MYSQL *mysql , const char *library , char *instance , int instance_bufsize );
+```
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_select_library.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+#include "mysqlda_api.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_select_library begin_seqno end_seqno\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	int		begin_seqno ;
+	int		end_seqno ;
+	int		seqno ;
+	char		seqno_buffer[ 20 + 1 ] ;
+	char		instance[ 20 + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	if( argc != 1 + 2 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
+	begin_seqno = atoi(argv[1]) ;
+	end_seqno = atoi(argv[2]) ;
+	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
+	{
+		snprintf( seqno_buffer , sizeof(seqno_buffer) , "%d" , seqno );
+		memset( instance , 0x00 , sizeof(instance) );
+		nret = mysql_select_library( conn , seqno_buffer , instance , sizeof(instance) ) ;
+		if( nret )
+		{
+			printf( "mysql_select_library failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_select_library ok , seqno_buffer[%s] instance[%s]\n" , seqno_buffer , instance );
+		}
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+## 6.2. 用关联对象类、关联对象绑定到核心业务对象
+
+该测试程序用于给定关联对象类、关联对象、核心业务对象，建立其关系
+
+主要用到了函数接口（新增MySQL通讯指令0x80）：
+
+```C
+int STDCALL mysql_set_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , const char *library , char *instance , int instance_bufsize );
+```
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_set_correl_object.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+#include "mysqlda_api.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_set_correl_object correl_object_class correl_object library\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	char		*correl_object_class = NULL ;
+	char		*correl_object = NULL ;
+	char		*library = NULL ;
+	char		instance[ 20 + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	if( argc != 1 + 3 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	correl_object_class = argv[1] ;
+	correl_object = argv[2] ;
+	library = argv[3] ;
+	memset( instance , 0x00 , sizeof(instance) );
+	nret = mysql_set_correl_object( conn , correl_object_class , correl_object , library , instance , sizeof(instance) ) ;
+	if( nret )
+	{
+		printf( "mysql_set_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		mysql_close( conn );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_set_correl_object ok , instance[%s]\n" , instance );
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+## 6.3. 用关联对象类、关联对象选择MySQL归属库
+
+该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库
+
+主要用到了函数接口（新增MySQL通讯指令0x81）：
+
+```C
+int STDCALL mysql_select_library_by_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , char *instance , int instance_bufsize );
+```
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_select_library_by_correl_object.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+#include "mysqlda_api.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_select_library_by_correl_object correl_object_class correl_object\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	char		*correl_object_class = NULL ;
+	char		*correl_object = NULL ;
+	char		instance[ 20 + 1 ] ;
+	int		nret = 0 ;
+	
+	if( argc != 1 + 2 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	correl_object_class = argv[1] ;
+	correl_object = argv[2] ;
+	memset( instance , 0x00 , sizeof(instance) );
+	nret = mysql_select_library_by_correl_object( conn , correl_object_class , correl_object , instance , sizeof(instance) ) ;
+	if( nret )
+	{
+		printf( "mysql_select_library_by_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		mysql_close( conn );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_select_library_by_correl_object ok , instance[%s]\n" , instance );
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+# 7. 最后
+
+## 7.1. 后续研发
+
+* 增加JAVA支持。现在只支持C
 * 实现mysqlda服务器集群。现在只支持mysqlda单服务器
 * 更多功能、更少性能衰减
 
-## 5.2. 源码托管
+## 7.2. 源码托管
 
 * [开源中国](http://git.oschina.net/calvinwilliams/mysqlda)
 * [github](https://github.com/calvinwilliams/mysqlda/)
 
-## 5.3. 作者邮箱
+## 7.3. 作者邮箱
 
 * [网易](mailto:calvinwilliams@163.com)
