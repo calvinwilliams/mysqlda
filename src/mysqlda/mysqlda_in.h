@@ -68,7 +68,8 @@ struct ListenSession
 #define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			5 /* 接收选择库后，全双工互转发前 */
 #define SESSIONSTATUS_FORWARDING							7 /* 全双工互转发 */
 
-#define MYSQL_COMMLEN(_cl_)	((_cl_[0]+_cl_[1]*0xFF+_cl_[2]*0xFF*0xFF))
+#define MYSQL_COMMLEN(_cl_)	(((unsigned char)((_cl_)[0])+(unsigned char)((_cl_)[1])*256+(unsigned char)((_cl_)[2])*256*256))
+#define MYSQL_OPTIONS_2(_cl_)	(((unsigned char)((_cl_)[0])+(unsigned char)((_cl_)[1])*256))
 
 /* 存活管道会话 结构 */
 struct AlivePipeSession
@@ -186,9 +187,19 @@ struct MysqldaEnvironment
 	char			db[ sizeof(((mysqlda_conf*)0)->auth.db) ] ; /* 数据库名 */
 	time_t			unused_forward_session_timeout ; /* 服务端转发会话缓存会话池超时时间 */
 	
-	char			handshake_head[ 4 ] ; /* 模拟握手信息头 */
-	int			handshake_message_length ; /* 模拟握手信息体长 */
-	char			*handshake_message ; /* 模拟握手信息体 */
+	int			handshake_request_message_length ; /* 模拟握手信息体长 */
+	char			*handshake_request_message ; /* 模拟握手信息体 */
+	
+	int			select_version_comment_response_message_length ; /* 模拟查询版本号信息体长 */
+	char			*select_version_comment_response_message ; /* 模拟查询版本号信息体 */
+	int			select_version_comment_response_message2_length ; /* 模拟查询版本号信息2体长 */
+	char			*select_version_comment_response_message2 ; /* 模拟查询版本号信息2体 */
+	int			select_version_comment_response_message3_length ; /* 模拟查询版本号信息3体长 */
+	char			*select_version_comment_response_message3 ; /* 模拟查询版本号信息3体 */
+	int			select_version_comment_response_message4_length ; /* 模拟查询版本号信息4体长 */
+	char			*select_version_comment_response_message4 ; /* 模拟查询版本号信息4体 */
+	int			select_version_comment_response_message5_length ; /* 模拟查询版本号信息5体长 */
+	char			*select_version_comment_response_message5 ; /* 模拟查询版本号信息5体 */
 	
 	struct rb_root		forward_instance_rbtree ; /* 服务端转发库 树（实例名为排序索引） */
 	struct rb_root		forward_serial_range_rbtree ; /* 服务端转发库 树（开始序号为排序索引） */
@@ -215,6 +226,8 @@ int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag
 void GenerateRandomDataWithoutNull( char *data , int data_len );
 
 unsigned long CalcHash( char *str , int str_len );
+
+char *wordncasecmp( char *s1 , char *s2 , size_t n );
 
 /*
  * config
@@ -261,6 +274,8 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int FormatSelectVersionCommentResponse( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+
 int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *library , int library_len );
 int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object_name , int correl_object_name_len , char *library , int library_len );
 int SelectDatabaseLibraryByCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *correl_object_class , int correl_object_class_len , char *correl_object_name , int correl_object_name_len );

@@ -51,8 +51,9 @@ int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSe
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
 #endif
-	memcpy( p_accepted_session->comm_buffer , p_env->handshake_message , 4+p_env->handshake_message_length );
-	p_accepted_session->comm_body_len = p_env->handshake_message_length ;
+	memcpy( p_accepted_session->comm_buffer , p_env->handshake_request_message , 4+p_env->handshake_request_message_length );
+	p_accepted_session->comm_body_len = p_env->handshake_request_message_length ;
+	p_accepted_session->fill_len = 3+1+p_accepted_session->comm_body_len ;
 	
 	p = p_accepted_session->comm_buffer + 3 + 1 + 1 ;
 	p += strlen(p) + 1 ;
@@ -114,7 +115,10 @@ static int CheckMysqlEncryptPassword( char *random_data , char *pass , char *enc
 /* 分解、检查客户端发给转发端的认证分组 */
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
+	unsigned int	client_options ;
 	char		*p = NULL ;
+	
+	client_options = MYSQL_OPTIONS_2(p_accepted_session->comm_buffer+3+1) ;
 	
 	p = p_accepted_session->comm_buffer + 3 + 1 + 4 + 4 + 1 + 23 ;
 	
@@ -144,6 +148,9 @@ int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct Accept
 	}
 	
 	p += 20 ;
+	
+	if( (client_options&CLIENT_CONNECT_WITH_DB) == 0 )
+		return 0;
 	
 	/* 数据库名 */
 	if( STRCMP( p , != , p_env->db ) )
@@ -214,6 +221,26 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
 	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
+	p_accepted_session->process_len = 0 ;
+	
+	return 0;
+}
+
+/* 填充服务端的查询版本号分组 */
+int FormatSelectVersionCommentResponse( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
+{
+	memcpy( p_accepted_session->comm_buffer , p_env->select_version_comment_response_message , 4+p_env->select_version_comment_response_message_length );
+	p_accepted_session->fill_len = 4+p_env->select_version_comment_response_message_length ;
+	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message2 , 4+p_env->select_version_comment_response_message2_length );
+	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message2_length ;
+	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message3 , 4+p_env->select_version_comment_response_message3_length );
+	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message3_length ;
+	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message4 , 4+p_env->select_version_comment_response_message4_length );
+	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message4_length ;
+	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message5 , 4+p_env->select_version_comment_response_message5_length );
+	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message5_length ;
+	
+	p_accepted_session->comm_body_len = p_accepted_session->fill_len-3-1 ;
 	p_accepted_session->process_len = 0 ;
 	
 	return 0;

@@ -73,6 +73,8 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 	int			recv_len ;
 	int			len ;
 	
+	char			*p = NULL ;
+	
 	int			nret = 0 ;
 	
 	/* 收一把客户端连接会话 */
@@ -241,6 +243,11 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 			{
 				ModifyAcceptedSessionEpollError( p_env , p_accepted_session );
 				ModifyForwardSessionEpollOutput( p_env , p_forward_session );
+			}
+			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x03 && ( p=wordncasecmp(wordncasecmp(p_accepted_session->comm_buffer+5,"select ",7),"@@version_comment ",18) ) )
+			{
+				FormatSelectVersionCommentResponse( p_env , p_accepted_session );
+				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 			}
 		}
 	}
