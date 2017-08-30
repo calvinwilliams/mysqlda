@@ -156,58 +156,6 @@ static int GetHandshakeMessage( struct MysqldaEnvironment *p_env )
 		return -1;
 	}
 	
-#if 0
-	length = 0 ;
-	while( length < 4 )
-	{
-		len = recv( sock , handshake_request_header+length , 4-length , 0 ) ;
-		if( len == -1 )
-		{
-			ERRORLOG( "recv failed , errno[%d]" , errno );
-			close( sock );
-			return -1;
-		}
-		else if( len == 0 )
-		{
-			ERRORLOG( "recv close , errno[%d]" , errno );
-			close( sock );
-			return -1;
-		}
-		
-		length += len ;
-	}
-	DEBUGHEXLOG( handshake_request_header , 4 , "handshake_request_header" );
-	
-	p_env->handshake_request_message_length = MYSQL_COMMLEN( handshake_request_header ) ;
-	p_env->handshake_request_message = (char*)malloc( 4+p_env->handshake_request_message_length ) ;
-	if( p_env->handshake_request_message == NULL )
-	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
-		return -1;
-	}
-	memcpy( p_env->handshake_request_message , handshake_request_header , 4 );
-	
-	length = 0 ;
-	while( length < p_env->handshake_request_message_length )
-	{
-		len = recv( sock , p_env->handshake_request_message+4+length , p_env->handshake_request_message_length-length , 0 ) ;
-		if( len == -1 )
-		{
-			ERRORLOG( "recv failed , errno[%d]" , errno );
-			close( sock );
-			return -1;
-		}
-		else if( len == 0 )
-		{
-			ERRORLOG( "recv close , errno[%d]" , errno );
-			close( sock );
-			return -1;
-		}
-		
-		length += len ;
-	}
-	DEBUGHEXLOG( p_env->handshake_request_message , 4+p_env->handshake_request_message_length , "handshake_request_message" );
-#endif
 	p_env->handshake_request_message = StrdupResponseMessage( p_env , sock , & (p_env->handshake_request_message_length) ) ;
 	if( p_env->handshake_request_message == NULL )
 	{
@@ -471,41 +419,41 @@ static int _worker( struct MysqldaEnvironment *p_env )
 					/* 可读事件 */
 					if( p_event->events & EPOLLIN )
 					{
-						INFOLOG( "OnReceivingAcceptedSocket ..." );
+						INFOLOG( "OnReceivingAcceptedSocket ... status[%d]" , p_accepted_session->status );
 						nret = OnReceivingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
-							FATALLOG( "OnReceivingAcceptedSocket failed[%d]" , nret );
+							FATALLOG( "OnReceivingAcceptedSocket failed[%d] , status[%d]" , nret , p_accepted_session->status );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							INFOLOG( "OnReceivingAcceptedSocket return[%d]" , nret );
+							INFOLOG( "OnReceivingAcceptedSocket return[%d] , status[%d]" , nret , p_accepted_session->status );
 							OnClosingAcceptedSocket( p_env , p_accepted_session );
 						}
 						else
 						{
-							DebugLog( __FILE__ , __LINE__ , "OnReceivingAcceptedSocket ok" );
+							DebugLog( __FILE__ , __LINE__ , "OnReceivingAcceptedSocket ok , status[%d]" , p_accepted_session->status );
 						}
 					}
 					/* 可写事件 */
 					else if( p_event->events & EPOLLOUT )
 					{
-						INFOLOG( "OnSendingAcceptedSocket ..." );
+						INFOLOG( "OnSendingAcceptedSocket ... status[%d]" , p_accepted_session->status );
 						nret = OnSendingAcceptedSocket( p_env , p_accepted_session ) ;
 						if( nret < 0 )
 						{
-							FATALLOG( "OnSendingAcceptedSocket failed[%d]" , nret );
+							FATALLOG( "OnSendingAcceptedSocket failed[%d] , status[%d]" , nret , p_accepted_session->status );
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							INFOLOG( "OnSendingAcceptedSocket return[%d]" , nret );
+							INFOLOG( "OnSendingAcceptedSocket return[%d] , status[%d]" , nret , p_accepted_session->status );
 							OnClosingAcceptedSocket( p_env , p_accepted_session );
 						}
 						else
 						{
-							DEBUGLOG( "OnSendingAcceptedSocket ok" );
+							DEBUGLOG( "OnSendingAcceptedSocket ok , status[%d]" , p_accepted_session->status );
 						}
 					}
 					/* 出错事件 */

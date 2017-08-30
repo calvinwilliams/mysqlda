@@ -10,7 +10,6 @@ MAKEFILE_POSTFIX=.Linux
 ###### 子目录配置区
 DIROBJS		= \
 			mysqlda \
-			mysqlda_api \
 
 ###### 加载mktpl模板库
 # 文件系统宏

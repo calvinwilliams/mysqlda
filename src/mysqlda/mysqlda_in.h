@@ -61,12 +61,13 @@ struct ListenSession
 #define SESSIONTYPE_ACCEPTEDSESSION	1 /* 客户端连接会话类型 */
 #define SESSIONTYPE_FORWARDSESSION	2 /* 服务端转发会话类型 */
 
-#define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						1 /* 转发端向客户端发送握手信息前 */
-#define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	2 /* 转发端向客户端发送握手信息后，接收客户端认证信息前 */
-#define SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING			3 /* 转发端发送客户端认证失败信息后 */
-#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY		4 /* 转发端发送客户端认证成功信息后，接收选择库前 */
-#define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			5 /* 接收选择库后，全双工互转发前 */
-#define SESSIONSTATUS_FORWARDING							7 /* 全双工互转发 */
+#define SESSIONSTATUS_BEFORE_SENDING_HANDSHAKE						10 /* 转发端向客户端发送握手信息前 */
+#define SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION	20 /* 转发端向客户端发送握手信息后，接收客户端认证信息前 */
+#define SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_FAIL	31 /* 转发端接收客户端认证信息后，发送认证失败信息前 */
+#define SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_OK		32 /* 转发端接收客户端认证信息后，发送认证成功信息前 */
+#define SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY		40 /* 转发端发送客户端认证成功信息后，接收选择库前 */
+#define SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD			50 /* 接收选择库后，全双工互转发前 */
+#define SESSIONSTATUS_FORWARDING							60 /* 全双工互转发 */
 
 #define MYSQL_COMMLEN(_cl_)	(((unsigned char)((_cl_)[0])+(unsigned char)((_cl_)[1])*256+(unsigned char)((_cl_)[2])*256*256))
 #define MYSQL_OPTIONS_2(_cl_)	(((unsigned char)((_cl_)[0])+(unsigned char)((_cl_)[1])*256))
@@ -89,6 +90,7 @@ struct AcceptedSession
 	struct NetAddress	netaddr ; /* 网络地址 */
 	
 	char			*comm_buffer ; /* 通讯缓冲区基地址 */
+	int			comm_bufsize ; /* 通讯缓冲区总大小 */
 	int			fill_len ; /* 数据填充长度 */
 	int			process_len ; /* 数据处理长度 */
 	int			comm_body_len ; /* mysql协议体长度 */
@@ -272,8 +274,8 @@ int OnClosingForwardSocket( struct MysqldaEnvironment *p_env , struct ForwardSes
 
 int FormatHandshakeMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
-int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
+int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , unsigned char serial_no , char *format , ... );
+int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , unsigned char serial_no );
 int FormatSelectVersionCommentResponse( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session );
 
 int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , char *library , int library_len );

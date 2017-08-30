@@ -163,15 +163,16 @@ int CheckAuthenticationMessage( struct MysqldaEnvironment *p_env , struct Accept
 }
 
 /* 填充转发端发给客户端的认证失败分组 */
-int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
+int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , unsigned char serial_no , char *format , ... )
 {
+	va_list		valist ;
 	int		len ;
 	
 	/* 初始化通讯缓冲区，跳过通讯头 */
 	p_accepted_session->fill_len = 3 ;
 	
 	/* 序号 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = serial_no ; p_accepted_session->fill_len++;
 	/* 状态标识 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0xFF ; p_accepted_session->fill_len++;
 	/* 错误码 */
@@ -181,7 +182,9 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 	/* 固定5个字节 */
 	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "\x32\x38\x30\x30\x30" , 5 ); p_accepted_session->fill_len += 5 ;
 	/* 出错信息 */
-	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "Access denied for user '%s' (using password: YES)" , p_env->user ) ; p_accepted_session->fill_len += len+1 ;
+	va_start( valist , format );
+	len = vsnprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_accepted_session->comm_bufsize-1-p_accepted_session->fill_len , format , valist ) ; p_accepted_session->fill_len += len+1 ;
+	va_end( valist );
 	
 	/* 最后 填充通讯头 */
 	len = p_accepted_session->fill_len - 3 - 1 ;
@@ -195,7 +198,7 @@ int FormatAuthResultFail( struct MysqldaEnvironment *p_env , struct AcceptedSess
 }
 
 /* 填充转发端发给客户端的认证成功分组 */
-int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
+int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session , unsigned char serial_no )
 {
 	int		len ;
 	
@@ -203,7 +206,7 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 	p_accepted_session->fill_len = 3 ;
 	
 	/* 序号 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x02 ; p_accepted_session->fill_len++;
+	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = serial_no ; p_accepted_session->fill_len++;
 	/* 状态标识 */
 	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
 	/* 影响行数 */
@@ -336,8 +339,6 @@ int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	int			fd ;
 	char			*p_date_time_string = NULL ;
 	
-	int			len ;
-	
 	int			nret = 0 ;
 	
 	/* 提取参数 */
@@ -451,24 +452,6 @@ int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		}
 	}
 	
-	/* 初始化通讯缓冲区，跳过通讯头 */
-	p_accepted_session->fill_len = 3 ;
-	
-	/* 序号 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
-	/* 状态标识 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x00 ; p_accepted_session->fill_len++;
-	/* 存储库实例名 */
-	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_forward_library->p_forward_instance->instance ) ; p_accepted_session->fill_len += len+1 ;
-	
-	/* 最后 填充通讯头 */
-	len = p_accepted_session->fill_len - 3 - 1 ;
-	p_accepted_session->comm_body_len = len ;
-	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->process_len = 0 ;
-	
 	return 0;
 }
 
@@ -485,8 +468,6 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	char				correl_object_class_save_pathfilename[ 256 + 1 ] ;
 	int				fd ;
 	char				*p_date_time_string = NULL ;
-	
-	int				len ;
 	
 	int				nret = 0 ;
 	
@@ -571,6 +552,7 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	if( p_forward_library == NULL )
 	{
 		ERRORLOG( "library[%.*s] not found" , library_len , library );
+		return 1;
 	}
 	else
 	{
@@ -609,24 +591,6 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 		}
 	}
 	
-	/* 初始化通讯缓冲区，跳过通讯头 */
-	p_accepted_session->fill_len = 3 ;
-	
-	/* 序号 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
-	/* 状态标识 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = ( p_forward_library?0x00:0xFF ) ; p_accepted_session->fill_len++;
-	/* 存储库实例名 */
-	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , (p_forward_library?(p_forward_library->p_forward_instance->instance):"") ) ; p_accepted_session->fill_len += len+1 ;
-	
-	/* 最后 填充通讯头 */
-	len = p_accepted_session->fill_len - 3 - 1 ;
-	p_accepted_session->comm_body_len = len ;
-	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->process_len = 0 ;
-	
 	return 0;
 }
 
@@ -637,9 +601,6 @@ int SelectDatabaseLibraryByCorrelObject( struct MysqldaEnvironment *p_env , stru
 	struct ForwardCorrelObjectClass	*p_forward_correl_object_class = NULL ;
 	struct ForwardCorrelObject	forward_correl_object ;
 	struct ForwardCorrelObject	*p_forward_correl_object = NULL ;
-	char				*p_instance = NULL ;
-	
-	int				len ;
 	
 	/* 提取参数 */
 	if( correl_object_class_len > MAXLEN_CORRELOBJECT_CLASS )
@@ -666,30 +627,12 @@ int SelectDatabaseLibraryByCorrelObject( struct MysqldaEnvironment *p_env , stru
 		{
 			if( p_forward_correl_object->p_forward_library )
 			{
-				p_instance = p_forward_correl_object->p_forward_library->p_forward_instance->instance ;
-				INFOLOG( "select instance[%s]" , p_instance );
+				INFOLOG( "select library[%s]" , p_forward_correl_object->p_forward_library->library );
+				return SelectDatabaseLibrary( p_env , p_accepted_session , p_forward_correl_object->p_forward_library->library , strlen(p_forward_correl_object->p_forward_library->library) );
 			}
 		}
 	}
 	
-	/* 初始化通讯缓冲区，跳过通讯头 */
-	p_accepted_session->fill_len = 3 ;
-	
-	/* 序号 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = 0x01 ; p_accepted_session->fill_len++;
-	/* 状态标识 */
-	p_accepted_session->comm_buffer[ p_accepted_session->fill_len ] = ( p_instance?0x00:0xFF ) ; p_accepted_session->fill_len++;
-	/* 存储库实例名 */
-	len = sprintf( p_accepted_session->comm_buffer+p_accepted_session->fill_len , "%s" , p_instance?p_instance:"" ) ; p_accepted_session->fill_len += len+1 ;
-	
-	/* 最后 填充通讯头 */
-	len = p_accepted_session->fill_len - 3 - 1 ;
-	p_accepted_session->comm_body_len = len ;
-	p_accepted_session->comm_buffer[0] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[1] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->comm_buffer[2] = (len&0xFF) ; len >>= 8 ;
-	p_accepted_session->process_len = 0 ;
-	
-	return 0;
+	return 1;
 }
 

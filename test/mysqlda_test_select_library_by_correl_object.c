@@ -5,7 +5,6 @@
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -18,7 +17,8 @@ int main( int argc , char *argv[] )
 	MYSQL		*conn = NULL ;
 	char		*correl_object_class = NULL ;
 	char		*correl_object = NULL ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
+	
 	int		nret = 0 ;
 	
 	if( argc != 1 + 2 )
@@ -48,17 +48,19 @@ int main( int argc , char *argv[] )
 	
 	correl_object_class = argv[1] ;
 	correl_object = argv[2] ;
-	memset( instance , 0x00 , sizeof(instance) );
-	nret = mysql_select_library_by_correl_object( conn , correl_object_class , correl_object , instance , sizeof(instance) ) ;
+	
+	memset( sql , 0x00 , sizeof(sql) );
+	snprintf( sql , sizeof(sql) , "select library_by_correl_object %s %s" , correl_object_class , correl_object );
+	nret = mysql_query( conn , sql ) ;
 	if( nret )
 	{
-		printf( "mysql_select_library_by_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		mysql_close( conn );
 		return 1;
 	}
 	else
 	{
-		printf( "mysql_select_library_by_correl_object ok , instance[%s]\n" , instance );
+		printf( "mysql_query ok\n" );
 	}
 	
 	mysql_close( conn );

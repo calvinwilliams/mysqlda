@@ -26,13 +26,11 @@ BIN		=	mysqlda_test_connect \
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
 			-std=gnu99 \
-			-I$(HOME)/include/mysqlda_api \
 			-I/usr/include/mysql \
 
 ###### 链接选项
 LFLAGS		=	$(_LFLAGS) \
 			-L$(HOME)/lib \
-			-lmysqlda_api \
 			-L/usr/lib64/mysql \
 			-lmysqlclient \
 
