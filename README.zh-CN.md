@@ -29,10 +29,11 @@ mysqlda - MySQL数据库中间件
     - [6.1. 用核心业务对象选择MySQL归属库](#61-用核心业务对象选择mysql归属库)
     - [6.2. 用关联对象类、关联对象绑定到核心业务对象](#62-用关联对象类、关联对象绑定到核心业务对象)
     - [6.3. 用关联对象类、关联对象选择MySQL归属库](#63-用关联对象类、关联对象选择mysql归属库)
-- [7. 最后](#7-最后)
-    - [7.1. 后续研发](#71-后续研发)
-    - [7.2. 源码托管](#72-源码托管)
-    - [7.3. 作者邮箱](#73-作者邮箱)
+- [7. 其它注意事项](#7-其它注意事项)
+- [8. 最后](#8-最后)
+    - [8.1. 后续研发](#81-后续研发)
+    - [8.2. 源码托管](#82-源码托管)
+    - [8.3. 作者邮箱](#83-作者邮箱)
 
 <!-- /TOC -->
 
@@ -56,7 +57,7 @@ mysqlda - MySQL数据库中间件
 
 但也存在以下硬伤：
 
-1. 产品线设计初期慎重挑选核心业务对象作为切分依据，后期将很难变更。
+1. 产品线设计初期慎重挑选核心业务对象作为切分依据，后期很难变更。
 2. 有些业务系统存在多个核心业务对象，不适合使用这种切分方式，如银行线上线下整合核心。
 
 **以分库分表切分**和**以核心业务对象切分**是两种主流的数据分布式设计范式，各有优缺点，应在不同场景挑选合适的方式。
@@ -93,13 +94,13 @@ MySQL数据库集群预创建相同的连接用户名、密码，相同的数据库名和应用表结构，mysqlda
 
 应用服务器调用标准MySQL连接函数/方法连接mysqlda，mysqlda会遵循MySQL通讯协议处理MySQL用户登录和密码校验。
 
-登录成功后，所有DML操作前，应用服务器调用mysqlda提供的定制函数/方法发送**核心业务对象**或**关联对象类**、**关联对象**的选择MySQL归属库接口，mysqlda会查询其已分配的MySQL库**核心业务对象**或**关联对象类**、**关联对象**（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表中选择一个服务器及其连接池中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外和对内连接结对，开始处理后续所有DML操作。
+登录成功后，所有DML操作前，应用服务器发送mysqlda扩展SQL选择**核心业务对象**（"select library 核心业务对象"）或**关联对象类**、**关联对象**（"select library_by_correl_object 关联对象类 关联对象"）以连接MySQL归属库，mysqlda会查询其已分配的MySQL库**核心业务对象**或**关联对象类**、**关联对象**（如果没有分配过则根据加权一致性哈希算法分配一个归属库并持久化到保存文件中），从该MySQL归属库对应数据库服务器有序列表中选择一个服务器及其连接池中选取空闲连接（如没有缓存连接则新建一条连接），然后桥接对外和对内连接结对，开始处理后续所有DML操作。
 
-后续DML操作中可以也调用mysqlda提供的函数/方法发送**核心业务对象**或**关联对象类、关联对象**以调整MySQL归属库服务器连接。
+后续DML操作中可以也发送mysqlda扩展SQL再选择**核心业务对象**或**关联对象类、关联对象**以调整MySQL归属库服务器连接。
 
 MySQL归属库对应一个数据库服务器列表，如由MySQL数据库1A(MASTER)、1B(SLAVE)、1C(SLAVE)、1D(SLAVE)组成，1A同步复制数据给1B、1C和1D，如果1A出现故障不能被mysqlda连接，mysqlda会依次尝试连接1B、1C和1D，实现系统可用性。
 
-应用服务器调用mysqlda提供的定制函数/方法发送**关联对象类**、**关联对象**和**核心业务对象**的设置关系接口给mysqlda，mysqlda会保存该关系并持久化到保存文件中，供以后直接用**关联对象类**、**关联对象**定位MySQL归属库。
+应用服务器发送mysqlda扩展SQL绑定**关联对象类**和**关联对象**和**核心业务对象**（"set correl_object 关联对象类 关联对象 核心业务对象"），mysqlda会保存该关系并持久化到保存文件中，供以后直接用**关联对象类**、**关联对象**定位MySQL归属库。
 
 ## 2.3. 内部数据实体和关系
 
@@ -152,10 +153,6 @@ rm -f comm.o
 rm -f app.o
 rm -f mysqlda
 make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
-rm -f mysqlda_api.o
-rm -f libmysqlda_api.so
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
 ```
 
 ## 3.3. 编译
@@ -178,25 +175,17 @@ gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c app.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda lk_list.o rbtree.o LOGC.o fasterjson.o util.o rbtree_ins.o IDL_mysqlda_conf.dsc.o main.o config.o monitor.o worker.o comm.o app.o -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient -lcrypto 
 make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_api.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o libmysqlda_api.so mysqlda_api.o -shared -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
 ```
 
 ## 3.4. 安装目标文件到缺省目标目录
 
 ```
 可执行文件 mysqlda $HOME/bin
-开发用头文件 mysqlda_api.h $HOME/include/mysqlda_api/
-开发用库文件 libmysqlda_api.so $HOME/lib/
 ```
 
 目标目录定义在makeinstall里的，如果有需要可调整安装目标目录
 
 ```
-_HDERBASE       =       $(HOME)/include/mysqlda_api
-_LIBBASE        =       $(HOME)/lib
 _BINBASE        =       $(HOME)/bin
 ```
 
@@ -205,17 +194,13 @@ $ make -f makefile.Linux install
 make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
 cp -rf mysqlda /home/calvin/bin/
 make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
-cp -rf libmysqlda_api.so /home/calvin/lib/
-cp -rf mysqlda_api.h /home/calvin/include/mysqlda_api/
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda_api'
 ```
 
 查询版本号，也确认可执行文件OK
 
 ```Shell
 $ mysqlda -v
-mysqlda v0.0.5.0
+mysqlda v0.0.6.0
 ```
 
 # 4. 配置使用
@@ -507,11 +492,7 @@ $HOME/etc/mysqlda.(关联对象类).save
 
 该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库。
 
-主要用到了函数接口（新增MySQL通讯指令0x79）：
-
-```C
-int STDCALL mysql_select_library( MYSQL *mysql , const char *library , char *instance , int instance_bufsize );
-```
+> 注意：也可以直接用客户端mysql连接服务器执行SQL"select library (核心业务对象);"得到等价效果。
 
 测试程序示例如下：
 
@@ -524,7 +505,6 @@ $ cat test/mysqlda_test_select_library.c
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -539,7 +519,7 @@ int main( int argc , char *argv[] )
 	int		end_seqno ;
 	int		seqno ;
 	char		seqno_buffer[ 20 + 1 ] ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
 	
 	int		nret = 0 ;
 	
@@ -558,7 +538,7 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -573,18 +553,18 @@ int main( int argc , char *argv[] )
 	end_seqno = atoi(argv[2]) ;
 	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
 	{
-		snprintf( seqno_buffer , sizeof(seqno_buffer) , "%d" , seqno );
-		memset( instance , 0x00 , sizeof(instance) );
-		nret = mysql_select_library( conn , seqno_buffer , instance , sizeof(instance) ) ;
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "select library %d" , seqno );
+		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{
-			printf( "mysql_select_library failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+			printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 			mysql_close( conn );
 			return 1;
 		}
 		else
 		{
-			printf( "mysql_select_library ok , seqno_buffer[%s] instance[%s]\n" , seqno_buffer , instance );
+			printf( "mysql_query ok\n" );
 		}
 	}
 	
@@ -599,11 +579,7 @@ int main( int argc , char *argv[] )
 
 该测试程序用于给定关联对象类、关联对象、核心业务对象，建立其关系
 
-主要用到了函数接口（新增MySQL通讯指令0x80）：
-
-```C
-int STDCALL mysql_set_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , const char *library , char *instance , int instance_bufsize );
-```
+> 注意：也可以直接用客户端mysql连接服务器执行SQL"set correl\_object 关联对象类 关联对象 核心业务对象;"得到等价效果。
 
 测试程序示例如下：
 
@@ -616,7 +592,6 @@ $ cat test/mysqlda_test_set_correl_object.c
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -630,7 +605,7 @@ int main( int argc , char *argv[] )
 	char		*correl_object_class = NULL ;
 	char		*correl_object = NULL ;
 	char		*library = NULL ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
 	
 	int		nret = 0 ;
 	
@@ -649,7 +624,7 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -662,17 +637,19 @@ int main( int argc , char *argv[] )
 	correl_object_class = argv[1] ;
 	correl_object = argv[2] ;
 	library = argv[3] ;
-	memset( instance , 0x00 , sizeof(instance) );
-	nret = mysql_set_correl_object( conn , correl_object_class , correl_object , library , instance , sizeof(instance) ) ;
+	
+	memset( sql , 0x00 , sizeof(sql) );
+	snprintf( sql , sizeof(sql) , "set correl_object %s %s %s" , correl_object_class , correl_object , library );
+	nret = mysql_query( conn , sql ) ;
 	if( nret )
 	{
-		printf( "mysql_set_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		mysql_close( conn );
 		return 1;
 	}
 	else
 	{
-		printf( "mysql_set_correl_object ok , instance[%s]\n" , instance );
+		printf( "mysql_query ok\n" );
 	}
 	
 	mysql_close( conn );
@@ -686,11 +663,7 @@ int main( int argc , char *argv[] )
 
 该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库
 
-主要用到了函数接口（新增MySQL通讯指令0x81）：
-
-```C
-int STDCALL mysql_select_library_by_correl_object( MYSQL *mysql , const char *correl_object_class , const char *correl_object , char *instance , int instance_bufsize );
-```
+> 注意：也可以直接用客户端mysql连接服务器执行SQL"select library\_by\_correl_object 关联对象类 关联对象;"得到等价效果。
 
 测试程序示例如下：
 
@@ -703,7 +676,6 @@ $ cat test/mysqlda_test_select_library_by_correl_object.c
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -716,7 +688,8 @@ int main( int argc , char *argv[] )
 	MYSQL		*conn = NULL ;
 	char		*correl_object_class = NULL ;
 	char		*correl_object = NULL ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
+	
 	int		nret = 0 ;
 	
 	if( argc != 1 + 2 )
@@ -746,17 +719,19 @@ int main( int argc , char *argv[] )
 	
 	correl_object_class = argv[1] ;
 	correl_object = argv[2] ;
-	memset( instance , 0x00 , sizeof(instance) );
-	nret = mysql_select_library_by_correl_object( conn , correl_object_class , correl_object , instance , sizeof(instance) ) ;
+	
+	memset( sql , 0x00 , sizeof(sql) );
+	snprintf( sql , sizeof(sql) , "select library_by_correl_object %s %s" , correl_object_class , correl_object );
+	nret = mysql_query( conn , sql ) ;
 	if( nret )
 	{
-		printf( "mysql_select_library_by_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		mysql_close( conn );
 		return 1;
 	}
 	else
 	{
-		printf( "mysql_select_library_by_correl_object ok , instance[%s]\n" , instance );
+		printf( "mysql_query ok\n" );
 	}
 	
 	mysql_close( conn );
@@ -766,19 +741,22 @@ int main( int argc , char *argv[] )
 }
 ```
 
-# 7. 最后
+# 7. 其它注意事项
 
-## 7.1. 后续研发
+> 可以用客户端mysql直接连接mysqlda，如"mysql --host 192.168.6.21 --port 3306 -u calvin -p"，但暂时不支持命令行中直接指定数据库。登录成功后的第一条命令必须是选择后端MySQL归属库，不用指定数据库，mysqlda已经用配置文件中的参数use数据库了。
 
-* 增加JAVA支持。现在只支持C
+# 8. 最后
+
+## 8.1. 后续研发
+
 * 实现mysqlda服务器集群。现在只支持mysqlda单服务器
 * 更多功能、更少性能衰减
 
-## 7.2. 源码托管
+## 8.2. 源码托管
 
 * [开源中国](http://git.oschina.net/calvinwilliams/mysqlda)
 * [github](https://github.com/calvinwilliams/mysqlda/)
 
-## 7.3. 作者邮箱
+## 8.3. 作者邮箱
 
 * [网易](mailto:calvinwilliams@163.com)

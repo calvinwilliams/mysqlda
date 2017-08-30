@@ -73,6 +73,8 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 	int			recv_len ;
 	int			len ;
 	
+	char			*p = NULL ;
+	
 	int			nret = 0 ;
 	
 	/* 收一把客户端连接会话 */
@@ -105,109 +107,6 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				INFOLOG( "mysql client close socket" );
 				return 1;
 			}
-			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x79 )
-			{
-				char		*library = NULL ;
-				int		library_len ;
-				
-				if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
-					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
-				
-				library = p_accepted_session->comm_buffer + 5 ;
-				library_len = p_accepted_session->comm_body_len - 1 ;
-				INFOLOG( "select library[%.*s]" , library_len , library );
-				
-				nret = SelectDatabaseLibrary( p_env , p_accepted_session , library , library_len ) ;
-				if( nret )
-				{
-					ERRORLOG( "SelectDatabaseLibrary failed[%d]" , nret );
-					return 1;
-				}
-				else
-				{
-					DEBUGLOG( "SelectDatabaseLibrary ok" );
-				}
-				
-				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
-				
-				return 0;
-			}
-			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x80 )
-			{
-				char		*correl_object_class = NULL ;
-				int		correl_object_class_len ;
-				char		*correl_object = NULL ;
-				int		correl_object_len ;
-				char		*library = NULL ;
-				int		library_len ;
-				
-				correl_object_class = p_accepted_session->comm_buffer + 5 ;
-				correl_object_class_len = strlen(correl_object_class) ;
-				INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
-				
-				correl_object = correl_object_class + correl_object_class_len + 1 ;
-				correl_object_len = strlen(correl_object) ;
-				INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
-				
-				library = correl_object + correl_object_len + 1 ;
-				library_len = strlen(library) ;
-				INFOLOG( "select library[%.*s]" , library_len , library );
-				
-				if( correl_object_class_len+1+correl_object_len+1+library_len+1 > p_accepted_session->comm_body_len-1 )
-					return 1;
-				
-				nret = SetDatabaseCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len , library , library_len ) ;
-				if( nret )
-				{
-					ERRORLOG( "SetDatabaseCorrelObject failed[%d]" , nret );
-					return 1;
-				}
-				else
-				{
-					DEBUGLOG( "SetDatabaseCorrelObject ok" );
-				}
-				
-				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
-				
-				return 0;
-			}
-			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x81 )
-			{
-				char		*correl_object_class = NULL ;
-				int		correl_object_class_len ;
-				char		*correl_object = NULL ;
-				int		correl_object_len ;
-				
-				INFOLOG( "select library[%.100s]" , p_accepted_session->comm_buffer+5 );
-				if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
-					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
-				
-				correl_object_class = p_accepted_session->comm_buffer + 5 ;
-				correl_object_class_len = strlen(correl_object_class) ;
-				INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
-				
-				correl_object = correl_object_class + correl_object_class_len + 1 ;
-				correl_object_len = strlen(correl_object) ;
-				INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
-				
-				if( correl_object_class_len+1+correl_object_len+1 > p_accepted_session->comm_body_len-1 )
-					return 1;
-				
-				nret = SelectDatabaseLibraryByCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len ) ;
-				if( nret )
-				{
-					ERRORLOG( "SelectDatabaseLibraryByCorrelObject failed[%d]" , nret );
-					return 1;
-				}
-				else
-				{
-					DEBUGLOG( "SelectDatabaseLibraryByCorrelObject ok" );
-				}
-				
-				ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
-				
-				return 0;
-			}
 		}
 		else
 		{
@@ -218,6 +117,7 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 		if( p_accepted_session->comm_body_len > 0 && p_accepted_session->fill_len >= 3+1+p_accepted_session->comm_body_len )
 		{
 			DEBUGLOG( "recv #%d# done , comm_body_len[%d]" , p_accepted_session->netaddr.sock , p_accepted_session->comm_body_len );
+			p_accepted_session->comm_buffer[p_accepted_session->fill_len] = '\0' ;
 			
 			if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION ) )
 			{
@@ -225,22 +125,171 @@ int OnReceivingAcceptedSocket( struct MysqldaEnvironment *p_env , struct Accepte
 				if( nret )
 				{
 					ERRORLOG( "CheckAuthenticationMessage failed[%d]" , nret );
-					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING ;
-					FormatAuthResultFail( p_env , p_accepted_session );
+					FormatAuthResultFail( p_env , p_accepted_session , 0x02 , "Access denied for user '%s' (using password: YES)" , p_env->user );
+					p_accepted_session->status = SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_FAIL ;
 					ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
 				}
 				else
 				{
 					INFOLOG( "CheckAuthenticationMessage ok" );
-					p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY ;
-					FormatAuthResultOk( p_env , p_accepted_session );
+					FormatAuthResultOk( p_env , p_accepted_session , 0x02 );
+					p_accepted_session->status = SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_OK ;
 					ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				}
+			}
+			else if( (unsigned char)(p_accepted_session->comm_buffer[4]) == 0x03 )
+			{
+				if( ( p=wordncasecmp(wordncasecmp(p_accepted_session->comm_buffer+5,"select ",7),"@@version_comment ",18) ) )
+				{
+					FormatSelectVersionCommentResponse( p_env , p_accepted_session );
+					ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+				}
+				else if( ( p=wordncasecmp(wordncasecmp(p_accepted_session->comm_buffer+5,"set ",4),"correl_object ",14) ) )
+				{
+					char		*correl_object_class = NULL ;
+					int		correl_object_class_len ;
+					char		*correl_object = NULL ;
+					int		correl_object_len ;
+					char		*library = NULL ;
+					int		library_len ;
+					
+					correl_object_class = strtok( p , " \t" ) ;
+					if( correl_object_class == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					correl_object_class_len = strlen(correl_object_class) ;
+					INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
+					
+					correl_object = strtok( NULL , " \t" ) ;
+					if( correl_object == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					correl_object_len = strlen(correl_object) ;
+					INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
+					
+					library = strtok( NULL , " \t" ) ;
+					if( library == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					library_len = strlen(library) ;
+					INFOLOG( "select library[%.*s]" , library_len , library );
+					
+					nret = SetDatabaseCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len , library , library_len ) ;
+					if( nret )
+					{
+						ERRORLOG( "SetDatabaseCorrelObject failed[%d]" , nret );
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "set correl_object failed" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+					else
+					{
+						DEBUGLOG( "SetDatabaseCorrelObject ok" );
+						FormatAuthResultOk( p_env , p_accepted_session , 0x01 );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+				}
+				else if( ( p=wordncasecmp(wordncasecmp(p_accepted_session->comm_buffer+5,"select ",7),"library ",8) ) )
+				{
+					char		*library = NULL ;
+					int		library_len ;
+					
+					library = strtok( p , " \t" ) ;
+					if( library == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					library_len = strlen(library) ;
+					INFOLOG( "select library[%.*s]" , library_len , library );
+					
+					nret = SelectDatabaseLibrary( p_env , p_accepted_session , library , library_len ) ;
+					if( nret )
+					{
+						ERRORLOG( "SelectDatabaseLibrary failed[%d]" , nret );
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "set library failed" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+					else
+					{
+						DEBUGLOG( "SelectDatabaseLibrary ok" );
+						FormatAuthResultOk( p_env , p_accepted_session , 0x01 );
+						if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
+							p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+				}
+				else if( ( p=wordncasecmp(wordncasecmp(p_accepted_session->comm_buffer+5,"select ",7),"library_by_correl_object ",25) ) )
+				{
+					char		*correl_object_class = NULL ;
+					int		correl_object_class_len ;
+					char		*correl_object = NULL ;
+					int		correl_object_len ;
+					
+					correl_object_class = strtok( p , " \t" ) ;
+					if( correl_object_class == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					correl_object_class_len = strlen(correl_object_class) ;
+					INFOLOG( "select correl_object_class[%.*s]" , correl_object_class_len , correl_object_class );
+					
+					correl_object = strtok( NULL , " \t" ) ;
+					if( correl_object == NULL )
+					{
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "command too short" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+						return 0;
+					}
+					correl_object_class_len = strlen(correl_object_class) ;
+					correl_object_len = strlen(correl_object) ;
+					INFOLOG( "select correl_object[%.*s]" , correl_object_len , correl_object );
+					
+					nret = SelectDatabaseLibraryByCorrelObject( p_env , p_accepted_session , correl_object_class , correl_object_class_len , correl_object , correl_object_len ) ;
+					if( nret )
+					{
+						ERRORLOG( "SelectDatabaseLibraryByCorrelObject failed[%d]" , nret );
+						FormatAuthResultFail( p_env , p_accepted_session , 0x01 , "select library_by_correl_object failed" );
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+					else
+					{
+						DEBUGLOG( "SelectDatabaseLibraryByCorrelObject ok" );
+						FormatAuthResultOk( p_env , p_accepted_session , 0x01 );
+						if( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY )
+							p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
+						ModifyAcceptedSessionEpollOutput( p_env , p_accepted_session );
+					}
+				}
+				else
+				{
+					if( p_accepted_session->status != SESSIONSTATUS_FORWARDING )
+					{
+						FATALLOG( "unknow status[%d] processing" , p_accepted_session->status );
+						return 1;
+					}
 				}
 			}
 			else if( LIKELY( p_accepted_session->status == SESSIONSTATUS_FORWARDING ) )
 			{
 				ModifyAcceptedSessionEpollError( p_env , p_accepted_session );
 				ModifyForwardSessionEpollOutput( p_env , p_forward_session );
+			}
+			else
+			{
+				FATALLOG( "unknow status processing" );
+				return 1;
 			}
 		}
 	}
@@ -283,17 +332,24 @@ _GOTO_SENDING_AGAIN :
 				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_HANDSHAKE_AND_BEFORE_RECEIVING_AUTHENTICATION ;
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 			}
-			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_FAIL_AND_BEFORE_FORWARDING ) )
+			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_FAIL ) )
 			{
 				INFOLOG( "need to close#%d#" , p_accepted_session->netaddr.sock );
 				return 1;
+			}
+			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_RECEIVING_AUTHENTICATION_AND_BEFORE_SENDING_AUTH_OK ) )
+			{
+				p_accepted_session->fill_len = 0 ;
+				p_accepted_session->process_len = 0 ;
+				p_accepted_session->comm_body_len = 0 ;
+				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY ;
+				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 			}
 			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_AUTH_OK_AND_BEFORE_RECEIVING_SELECT_LIBRARY ) )
 			{
 				p_accepted_session->fill_len = 0 ;
 				p_accepted_session->process_len = 0 ;
 				p_accepted_session->comm_body_len = 0 ;
-				p_accepted_session->status = SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ;
 				ModifyAcceptedSessionEpollInput( p_env , p_accepted_session );
 			}
 			else if( UNLIKELY( p_accepted_session->status == SESSIONSTATUS_AFTER_SENDING_SELECT_LIBRARY_AND_BEFORE_FORDWARD ) )
@@ -322,6 +378,11 @@ _GOTO_SENDING_AGAIN :
 					p_accepted_session->comm_body_len = MYSQL_COMMLEN(p_accepted_session->comm_buffer) ;
 					goto _GOTO_SENDING_AGAIN;
 				}
+			}
+			else
+			{
+				FATALLOG( "unknow status processing" );
+				return 1;
 			}
 		}
 	}
