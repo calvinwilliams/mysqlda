@@ -5,7 +5,6 @@
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -20,7 +19,7 @@ int main( int argc , char *argv[] )
 	int		end_seqno ;
 	int		seqno ;
 	char		seqno_buffer[ 20 + 1 ] ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
 	
 	int		nret = 0 ;
 	
@@ -39,7 +38,7 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -54,18 +53,18 @@ int main( int argc , char *argv[] )
 	end_seqno = atoi(argv[2]) ;
 	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
 	{
-		snprintf( seqno_buffer , sizeof(seqno_buffer) , "%d" , seqno );
-		memset( instance , 0x00 , sizeof(instance) );
-		nret = mysql_select_library( conn , seqno_buffer , instance , sizeof(instance) ) ;
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "select library %d" , seqno );
+		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{
-			printf( "mysql_select_library failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+			printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 			mysql_close( conn );
 			return 1;
 		}
 		else
 		{
-			printf( "mysql_select_library ok , seqno_buffer[%s] instance[%s]\n" , seqno_buffer , instance );
+			printf( "mysql_query ok\n" );
 		}
 	}
 	

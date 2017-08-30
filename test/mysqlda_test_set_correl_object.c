@@ -5,7 +5,6 @@
 
 #include "my_global.h"
 #include "mysql.h"
-#include "mysqlda_api.h"
 
 static void usage()
 {
@@ -19,7 +18,7 @@ int main( int argc , char *argv[] )
 	char		*correl_object_class = NULL ;
 	char		*correl_object = NULL ;
 	char		*library = NULL ;
-	char		instance[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
 	
 	int		nret = 0 ;
 	
@@ -38,7 +37,7 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "127.0.0.1" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -51,17 +50,19 @@ int main( int argc , char *argv[] )
 	correl_object_class = argv[1] ;
 	correl_object = argv[2] ;
 	library = argv[3] ;
-	memset( instance , 0x00 , sizeof(instance) );
-	nret = mysql_set_correl_object( conn , correl_object_class , correl_object , library , instance , sizeof(instance) ) ;
+	
+	memset( sql , 0x00 , sizeof(sql) );
+	snprintf( sql , sizeof(sql) , "set correl_object %s %s %s" , correl_object_class , correl_object , library );
+	nret = mysql_query( conn , sql ) ;
 	if( nret )
 	{
-		printf( "mysql_set_correl_object failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		printf( "mysql_query failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		mysql_close( conn );
 		return 1;
 	}
 	else
 	{
-		printf( "mysql_set_correl_object ok , instance[%s]\n" , instance );
+		printf( "mysql_query ok\n" );
 	}
 	
 	mysql_close( conn );

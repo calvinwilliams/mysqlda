@@ -143,3 +143,22 @@ unsigned long CalcHash( char *str , int str_len )
 	return ul;
 }
 
+/* 比较多词字符串前缀，如果前缀相同则返回比较偏移地址，否则返回NULL */
+char *wordncasecmp( char *s1 , char *s2 , size_t n )
+{
+	char	*p = NULL ;
+	
+	if( s1 == NULL )
+		return NULL;
+	
+	for( p = s1 ; (*p) && (*p)==' ' && (*p)=='\t' ; p++ )
+		;
+	if( (*p) == '\0' )
+		return NULL;
+	
+	if( strncasecmp( p , s2 , n ) )
+		return NULL;
+	
+	return p+n;
+}
+
