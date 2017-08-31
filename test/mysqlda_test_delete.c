@@ -8,7 +8,7 @@
 
 static void usage()
 {
-	printf( "USAGE : mysqlda_test_insert begin_seqno end_seqno\n" );
+	printf( "USAGE : mysqlda_test_delete begin_seqno end_seqno\n" );
 	return;
 }
 
@@ -68,7 +68,7 @@ int main( int argc , char *argv[] )
 		}
 		
 		memset( sql , 0x00 , sizeof(sql) );
-		snprintf( sql , sizeof(sql) , "insert into test_table value( '%d' , %d );" , seqno , seqno );
+		snprintf( sql , sizeof(sql) , "delete from test_table where 'key'='%d' );" , seqno );
 		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{

@@ -464,6 +464,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 					p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
 					
 					INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
+					INIT_LK_LIST_HEAD( & (p_forward_server->unused_forward_session_list) );
 					
 					lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
 					
@@ -510,6 +511,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 				p_forward_server->netaddr.port = p_conf->forwards[forwards_no].forward[forward_no].port ;
 				
 				INIT_LK_LIST_HEAD( & (p_forward_server->forward_session_list) );
+				INIT_LK_LIST_HEAD( & (p_forward_server->unused_forward_session_list) );
 				
 				lk_list_add_tail( & (p_forward_server->forward_server_listnode) , & (p_forward_instance->forward_server_list) );
 				
@@ -535,8 +537,6 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			}
 			
 			p_env->total_power += p_env->total_power ;
-			
-			INFOLOG( "reload add instance[%p][%s]" , p_forward_instance , p_forward_instance->instance );
 		}
 	}
 	
