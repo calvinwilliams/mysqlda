@@ -10,9 +10,11 @@
 c_FILE		=	\
 			mysqlda_test_connect.c \
 			mysqlda_test_select_library.c \
-			mysqlda_test_insert.c \
 			mysqlda_test_set_correl_object.c \
 			mysqlda_test_select_library_by_correl_object.c \
+			mysqlda_test_insert.c \
+			mysqlda_test_update.c \
+			mysqlda_test_delete.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -20,8 +22,9 @@ BIN		=	mysqlda_test_connect \
 			mysqlda_test_select_library \
 			mysqlda_test_set_correl_object \
 			mysqlda_test_select_library_by_correl_object \
-
-#			mysqlda_test_insert \
+			mysqlda_test_insert \
+			mysqlda_test_update \
+			mysqlda_test_delete \
 
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
@@ -60,4 +63,13 @@ mysqlda_test_set_correl_object	:	mysqlda_test_set_correl_object.o
 
 mysqlda_test_select_library_by_correl_object	:	mysqlda_test_select_library_by_correl_object.o
 	$(CC) -o $@ mysqlda_test_select_library_by_correl_object.o $(LFLAGS)
+
+mysqlda_test_insert	:	mysqlda_test_insert.o
+	$(CC) -o $@ mysqlda_test_insert.o $(LFLAGS)
+
+mysqlda_test_update	:	mysqlda_test_update.o
+	$(CC) -o $@ mysqlda_test_update.o $(LFLAGS)
+
+mysqlda_test_delete	:	mysqlda_test_delete.o
+	$(CC) -o $@ mysqlda_test_delete.o $(LFLAGS)
 

@@ -750,6 +750,7 @@ int main( int argc , char *argv[] )
 ## 8.1. 后续研发
 
 * 实现mysqlda服务器集群。现在只支持mysqlda单服务器
+* 内存使用优化
 * 更多功能、更少性能衰减
 
 ## 8.2. 源码托管
