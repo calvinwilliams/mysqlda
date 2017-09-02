@@ -13,8 +13,8 @@ mysqlda - MySQL数据库中间件
 - [3. 安装部署](#3-安装部署)
     - [3.1. 解开mysqlda源码包 或 直接从源码托管地址克隆最新版](#31-解开mysqlda源码包-或-直接从源码托管地址克隆最新版)
     - [3.2. 进入src目录，清理中间文件](#32-进入src目录，清理中间文件)
-    - [3.3. 编译](#33-编译)
-    - [3.4. 安装目标文件到缺省目标目录](#34-安装目标文件到缺省目标目录)
+    - [3.3. 编译、安装到目标目录](#33-编译、安装到目标目录)
+    - [3.4. 查询版本号，也确认可执行文件OK](#34-查询版本号，也确认可执行文件ok)
 - [4. 配置使用](#4-配置使用)
     - [4.1. 自动生成缺省配置文件](#41-自动生成缺省配置文件)
     - [4.2. 启动mysqlda](#42-启动mysqlda)
@@ -25,7 +25,7 @@ mysqlda - MySQL数据库中间件
 - [5. 保存文件输出格式](#5-保存文件输出格式)
     - [5.1. 核心业务对象-MySQL归属库 保存文件格式](#51-核心业务对象-mysql归属库-保存文件格式)
     - [5.2. 关联对象类、关联对象-核心业务对象 保存文件格式](#52-关联对象类、关联对象-核心业务对象-保存文件格式)
-- [6. 开发接口](#6-开发接口)
+- [6. 开发示例（C语言）](#6-开发示例（c语言）)
     - [6.1. 用核心业务对象选择MySQL归属库](#61-用核心业务对象选择mysql归属库)
     - [6.2. 用关联对象类、关联对象绑定到核心业务对象](#62-用关联对象类、关联对象绑定到核心业务对象)
     - [6.3. 用关联对象类、关联对象选择MySQL归属库](#63-用关联对象类、关联对象选择mysql归属库)
@@ -73,7 +73,7 @@ mysqlda优势：
 * 支持以核心业务对象定位MySQL归属库（如开户用手机号或邮箱），也支持核心业务对象的关联对象（如开户后的用户ID、用户名、账号）定位MySQL归属库。
 * 归属库分配权重自动调整，扩容后新库与老库的分配权重也自动调整，无需人工介入，使得所有归属库的数据量尽量自动均衡增长。
 * 包含了数据库网关高可用功能，当一个归属库当前MySQL主服务器不可用时自动切换到备服务器，支持多个备服务器。
-* 了与MySQL服务器之间连接池机制实现了连接复用和闲置清理，提高连接和切换性能。
+* 与MySQL服务器之间连接池机制实现了连接复用和闲置清理，提高连接和切换性能。
 * 通过在线重载配置文件，扩容新增MySQL归属库、调整MySQL服务器优先列表完全无感。
 
 # 2. 架构与原理
@@ -87,6 +87,8 @@ mysqlda数据库中间件完全遵循MySQL通讯协议桥接应用服务器集群和MySQL数据库集群。
 mysqlda内部进程结构为“父-单子进程”。
 
 ## 2.2. 工作原理
+
+全量数据以核心业务对象切分到多个归属库中，每个归属库包含全业务表。一个归属库由一个MySQL服务器列表（需部署为向下游同步数据）组成，当当前MySQL服务器不可用时自动切换到下一个。
 
 MySQL数据库集群预创建相同的连接用户名、密码，相同的数据库名和应用表结构，mysqlda预创建相同的连接用户名、密码。
 
@@ -155,10 +157,16 @@ rm -f mysqlda
 make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
 ```
 
-## 3.3. 编译
+## 3.3. 编译、安装到目标目录
+
+可执行文件mysqlda默认编译链接出来后安装到$HOME/bin，如需调整目标目录可编辑mysqlda/makeinstall
+
+```
+_BINBASE        =       $(HOME)/bin
+```
 
 ```Shell
-$ make -f makefile.Linux 
+$ make -f makefile.Linux install
 make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c lk_list.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c rbtree.c
@@ -174,29 +182,11 @@ gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c comm.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c app.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda lk_list.o rbtree.o LOGC.o fasterjson.o util.o rbtree_ins.o IDL_mysqlda_conf.dsc.o main.o config.o monitor.o worker.o comm.o app.o -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient -lcrypto 
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
-```
-
-## 3.4. 安装目标文件到缺省目标目录
-
-```
-可执行文件 mysqlda $HOME/bin
-```
-
-目标目录定义在makeinstall里的，如果有需要可调整安装目标目录
-
-```
-_BINBASE        =       $(HOME)/bin
-```
-
-```Shell
-$ make -f makefile.Linux install
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
 cp -rf mysqlda /home/calvin/bin/
 make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
 ```
 
-查询版本号，也确认可执行文件OK
+## 3.4. 查询版本号，也确认可执行文件OK
 
 ```Shell
 $ mysqlda -v
@@ -272,7 +262,8 @@ USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]
 $ mysqlda -a start
 ```
 
-查询启动日志
+查询启动日志（以我的环境参数配置）
+
 ```Shell
 $ view ~/log/mysqlda.log
 2017-08-28 00:14:00.006735 | INFO  | 53148:config.c:349 | Load /home/calvin/etc/mysqlda.save ok
@@ -484,7 +475,7 @@ $HOME/etc/mysqlda.(关联对象类).save
 2017-08-26 18:12:41 330002 3
 ```
 
-# 6. 开发接口
+# 6. 开发示例（C语言）
 
 项目主目录的test目录里是测试实例
 
