@@ -10,7 +10,10 @@ if [ $# -eq 0 ] ; then
 	exit 9
 fi
 
-case $1 in
+ACTION=$1
+shift
+
+case $ACTION in
 	status)
 		ps -f -u $USER | grep "mysqlda -a start" | grep -v grep | awk '{if($3=="1")print $0}'
 		ps -f -u $USER | grep "mysqlda -a start" | grep -v grep | awk '{if($3!="1")print $0}'
@@ -31,7 +34,7 @@ case $1 in
 			echo "*** ERROR : mysqlda existed"
 			exit 1
 		fi
-		mysqlda -a start
+		mysqlda -a start $*
 		NRET=$?
 		if [ $NRET -ne 0 ] ; then
 			echo "*** ERROR : mysqlda start error[$NRET]"
@@ -76,7 +79,7 @@ case $1 in
 	restart)
 		mysqlda.sh stop
 		sleep 1
-		mysqlda.sh start
+		mysqlda.sh start $*
 		;;
 	reload)
 		mysqlda.sh status

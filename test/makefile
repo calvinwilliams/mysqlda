@@ -15,6 +15,7 @@ c_FILE		=	\
 			mysqlda_test_insert.c \
 			mysqlda_test_update.c \
 			mysqlda_test_delete.c \
+			mysqlda_test_press.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -25,6 +26,7 @@ BIN		=	mysqlda_test_connect \
 			mysqlda_test_insert \
 			mysqlda_test_update \
 			mysqlda_test_delete \
+			mysqlda_test_press \
 
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
@@ -72,4 +74,7 @@ mysqlda_test_update	:	mysqlda_test_update.o
 
 mysqlda_test_delete	:	mysqlda_test_delete.o
 	$(CC) -o $@ mysqlda_test_delete.o $(LFLAGS)
+
+mysqlda_test_press	:	mysqlda_test_press.o
+	$(CC) -o $@ mysqlda_test_press.o $(LFLAGS)
 

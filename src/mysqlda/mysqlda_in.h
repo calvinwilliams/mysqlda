@@ -183,6 +183,7 @@ struct MysqldaEnvironment
 	char			*save_filename ; /* 转发规则历史 持久化 路径文件 */
 	int			no_daemon_flag ; /* 是否以守护进程模式运行 */
 	char			*action ; /* 行为方式 */
+	int			log_level ; /* 日志等级，默认为ERROR */
 	
 	char			user[ sizeof(((mysqlda_conf*)0)->auth.user) ] ; /* 数据库连接用户名 */
 	char			pass[ sizeof(((mysqlda_conf*)0)->auth.pass) ] ; /* 数据库连接用户密码 */

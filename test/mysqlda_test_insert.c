@@ -68,7 +68,7 @@ int main( int argc , char *argv[] )
 		}
 		
 		memset( sql , 0x00 , sizeof(sql) );
-		snprintf( sql , sizeof(sql) , "insert into test_table value( '%d' , %d );" , seqno , seqno );
+		snprintf( sql , sizeof(sql) , "insert into test_table value( '%d' , '%d' )" , seqno , seqno );
 		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{

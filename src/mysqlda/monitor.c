@@ -113,7 +113,7 @@ int monitor( void *pv )
 	
 	/* 设置日志文件和等级 */
 	SetLogFile( "%s/log/mysqlda.log" , getenv("HOME") );
-	SetLogLevel( LOGLEVEL_DEBUG );
+	SetLogLevel( p_env->log_level );
 	SetLogPid();
 	
 	nret = _monitor( p_env ) ;

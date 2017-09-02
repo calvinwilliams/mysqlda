@@ -68,7 +68,7 @@ int main( int argc , char *argv[] )
 		}
 		
 		memset( sql , 0x00 , sizeof(sql) );
-		snprintf( sql , sizeof(sql) , "update test_table set value=%d where 'key'='%d' ;" , seqno , seqno );
+		snprintf( sql , sizeof(sql) , "update test_table set value='%d' where name='%d'" , seqno , seqno );
 		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{

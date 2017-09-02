@@ -13,8 +13,9 @@ mysqlda - MySQL数据库中间件
 - [3. 安装部署](#3-安装部署)
     - [3.1. 解开mysqlda源码包 或 直接从源码托管地址克隆最新版](#31-解开mysqlda源码包-或-直接从源码托管地址克隆最新版)
     - [3.2. 进入src目录，清理中间文件](#32-进入src目录，清理中间文件)
-    - [3.3. 编译、安装到目标目录](#33-编译、安装到目标目录)
-    - [3.4. 查询版本号，也确认可执行文件OK](#34-查询版本号，也确认可执行文件ok)
+    - [3.3. 修改安装目标目录](#33-修改安装目标目录)
+    - [3.4. 编译、安装](#34-编译、安装)
+    - [3.5. 查询版本号，也确认可执行文件OK](#35-查询版本号，也确认可执行文件ok)
 - [4. 配置使用](#4-配置使用)
     - [4.1. 自动生成缺省配置文件](#41-自动生成缺省配置文件)
     - [4.2. 启动mysqlda](#42-启动mysqlda)
@@ -26,14 +27,18 @@ mysqlda - MySQL数据库中间件
     - [5.1. 核心业务对象-MySQL归属库 保存文件格式](#51-核心业务对象-mysql归属库-保存文件格式)
     - [5.2. 关联对象类、关联对象-核心业务对象 保存文件格式](#52-关联对象类、关联对象-核心业务对象-保存文件格式)
 - [6. 开发示例（C语言）](#6-开发示例（c语言）)
-    - [6.1. 用核心业务对象选择MySQL归属库](#61-用核心业务对象选择mysql归属库)
+    - [6.1. 用核心业务对象定位MySQL归属库](#61-用核心业务对象定位mysql归属库)
     - [6.2. 用关联对象类、关联对象绑定到核心业务对象](#62-用关联对象类、关联对象绑定到核心业务对象)
-    - [6.3. 用关联对象类、关联对象选择MySQL归属库](#63-用关联对象类、关联对象选择mysql归属库)
-- [7. 其它注意事项](#7-其它注意事项)
-- [8. 最后](#8-最后)
-    - [8.1. 后续研发](#81-后续研发)
-    - [8.2. 源码托管](#82-源码托管)
-    - [8.3. 作者邮箱](#83-作者邮箱)
+    - [6.3. 用关联对象类、关联对象定位MySQL归属库](#63-用关联对象类、关联对象定位mysql归属库)
+    - [6.4. 用核心业务对象定位MySQL归属库、然后批量执行INSERT语句](#64-用核心业务对象定位mysql归属库、然后批量执行insert语句)
+    - [6.5. 用核心业务对象定位MySQL归属库、然后批量执行UPDATE语句](#65-用核心业务对象定位mysql归属库、然后批量执行update语句)
+    - [6.6. 用核心业务对象定位MySQL归属库、然后批量执行INSERT语句](#66-用核心业务对象定位mysql归属库、然后批量执行insert语句)
+- [7. 性能压测](#7-性能压测)
+- [8. 其它注意事项](#8-其它注意事项)
+- [9. 最后](#9-最后)
+    - [9.1. 后续研发](#91-后续研发)
+    - [9.2. 源码托管](#92-源码托管)
+    - [9.3. 作者邮箱](#93-作者邮箱)
 
 <!-- /TOC -->
 
@@ -74,7 +79,7 @@ mysqlda优势：
 * 归属库分配权重自动调整，扩容后新库与老库的分配权重也自动调整，无需人工介入，使得所有归属库的数据量尽量自动均衡增长。
 * 包含了数据库网关高可用功能，当一个归属库当前MySQL主服务器不可用时自动切换到备服务器，支持多个备服务器。
 * 与MySQL服务器之间连接池机制实现了连接复用和闲置清理，提高连接和切换性能。
-* 通过在线重载配置文件，扩容新增MySQL归属库、调整MySQL服务器优先列表完全无感。
+* 通过在线重载配置文件，扩容新增MySQL归属库、调整MySQL服务器优先列表等完全无感。
 
 # 2. 架构与原理
 
@@ -137,9 +142,10 @@ Resolving deltas: 100% (221/221), done.
 ## 3.2. 进入src目录，清理中间文件
 
 ```Shell
-$ cd mysqlda/src
+$ cd mysqlda
 $ make -f makefile.Linux clean
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+make[1]: Entering directory `/home/calvin/src/mysqlda/src'
+make[2]: Entering directory `/home/calvin/src/mysqlda/src/mysqlda'
 rm -f lk_list.o
 rm -f rbtree.o
 rm -f LOGC.o
@@ -154,39 +160,89 @@ rm -f worker.o
 rm -f comm.o
 rm -f app.o
 rm -f mysqlda
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+make[2]: Leaving directory `/home/calvin/src/mysqlda/src/mysqlda'
+make[1]: Leaving directory `/home/calvin/src/mysqlda/src'
+make[1]: Entering directory `/home/calvin/src/mysqlda/shbin'
+make[1]: Leaving directory `/home/calvin/src/mysqlda/shbin'
+make[1]: Entering directory `/home/calvin/src/mysqlda/test'
+rm -f mysqlda_test_connect.o
+rm -f mysqlda_test_select_library.o
+rm -f mysqlda_test_set_correl_object.o
+rm -f mysqlda_test_select_library_by_correl_object.o
+rm -f mysqlda_test_insert.o
+rm -f mysqlda_test_update.o
+rm -f mysqlda_test_delete.o
+rm -f mysqlda_test_connect
+rm -f mysqlda_test_select_library
+rm -f mysqlda_test_set_correl_object
+rm -f mysqlda_test_select_library_by_correl_object
+rm -f mysqlda_test_insert
+rm -f mysqlda_test_update
+rm -f mysqlda_test_delete
+make[1]: Leaving directory `/home/calvin/src/mysqlda/test'
 ```
 
-## 3.3. 编译、安装到目标目录
+## 3.3. 修改安装目标目录
 
-可执行文件mysqlda默认编译链接出来后安装到$HOME/bin，如需调整目标目录可编辑mysqlda/makeinstall
+可执行文件mysqlda默认编译链接出来后安装到$HOME/bin，如需调整目标目录可编辑src/mysqlda/makeinstall
 
 ```
 _BINBASE        =       $(HOME)/bin
 ```
 
-```Shell
-$ make -f makefile.Linux install
-make[1]: Entering directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c lk_list.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c rbtree.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c LOGC.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c fasterjson.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c util.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c rbtree_ins.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c IDL_mysqlda_conf.dsc.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c main.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c config.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c monitor.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c worker.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c comm.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c app.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda lk_list.o rbtree.o LOGC.o fasterjson.o util.o rbtree_ins.o IDL_mysqlda_conf.dsc.o main.o config.o monitor.o worker.o comm.o app.o -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient -lcrypto 
-cp -rf mysqlda /home/calvin/bin/
-make[1]: Leaving directory `/home/calvin/src/tmp/mysqlda/src/mysqlda'
+管理脚本mysqlda.sh默认编译链接出来后安装到$HOME/shbin，如需调整目标目录可编辑shbin/makeinstall
+
+```
+NOCLEAN_OBJINST =       $(HOME)/shbin
 ```
 
-## 3.4. 查询版本号，也确认可执行文件OK
+没特殊需求可以不修改
+
+## 3.4. 编译、安装
+
+```Shell
+$ make -f makefile.Linux install
+make[1]: Entering directory `/home/calvin/src/mysqlda/src'
+make[2]: Entering directory `/home/calvin/src/mysqlda/src/mysqlda'
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c lk_list.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c rbtree.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c LOGC.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c fasterjson.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c util.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c rbtree_ins.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c IDL_mysqlda_conf.dsc.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c main.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c config.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c monitor.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c worker.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c comm.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include/mysqlda_api -std=gnu99 -I/usr/include/mysql  -c app.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda lk_list.o rbtree.o LOGC.o fasterjson.o util.o rbtree_ins.o IDL_mysqlda_conf.dsc.o main.o config.o monitor.o worker.o comm.o app.o -L. -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient -lcrypto 
+cp -rf mysqlda /home/calvin/bin/
+make[2]: Leaving directory `/home/calvin/src/mysqlda/src/mysqlda'
+make[1]: Leaving directory `/home/calvin/src/mysqlda/src'
+make[1]: Entering directory `/home/calvin/src/mysqlda/shbin'
+cp -rf mysqlda.sh /home/calvin/shbin/
+make[1]: Leaving directory `/home/calvin/src/mysqlda/shbin'
+make[1]: Entering directory `/home/calvin/src/mysqlda/test'
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_connect.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_connect mysqlda_test_connect.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_select_library.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_select_library mysqlda_test_select_library.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_set_correl_object.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_set_correl_object mysqlda_test_set_correl_object.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_select_library_by_correl_object.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_select_library_by_correl_object mysqlda_test_select_library_by_correl_object.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_insert.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_insert mysqlda_test_insert.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_update.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_update mysqlda_test_update.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/usr/include/mysql  -c mysqlda_test_delete.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o mysqlda_test_delete mysqlda_test_delete.o -L. -L/home/calvin/lib -L/home/calvin/lib -L/usr/lib64/mysql -lmysqlclient 
+make[1]: Leaving directory `/home/calvin/src/mysqlda/test'
+```
+
+## 3.5. 查询版本号，也确认可执行文件OK
 
 ```Shell
 $ mysqlda -v
@@ -204,7 +260,7 @@ $ cat ~/etc/mysqlda.conf
         "server" : 
         {
                 "listen_ip" : "127.0.0.1" ,
-                "listen_port" : 3306
+                "listen_port" : 13306
         } ,
         "auth" : 
         {
@@ -224,7 +280,7 @@ $ cat ~/etc/mysqlda.conf
                 [
                 {
                         "ip" : "127.0.0.1" ,
-                        "port" : 13306
+                        "port" : 3306
                 }
                 ]
         }
@@ -260,6 +316,12 @@ USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]
 
 ```Shell
 $ mysqlda -a start
+```
+
+也可以使用管理脚本启动
+
+```Shell
+$ mysqlda.sh start
 ```
 
 查询启动日志（以我的环境参数配置）
@@ -342,6 +404,12 @@ calvin   53111 52899  0 00:12 pts/1    00:00:00 grep --color=auto mysqlda
 $ kill 53069
 ```
 
+也可以使用管理脚本停止
+
+```Shell
+$ mysqlda.sh stop
+```
+
 ## 4.4. 扩容MySQL数据库集群
 
 ### 4.4.1. 增加MySQL归属库
@@ -415,7 +483,11 @@ $ kill 53069
         ]
 ```
 
-发送USR1信号到mysqlda父进程。
+发送USR1信号到mysqlda父进程以重载配置，也可以使用管理脚本。
+
+```Shell
+$ mysqlda.sh reload
+```
 
 > 注意：理论上支持在一个MySQL归属库中修改和删除一台MySQL服务器，但会立即断开这台MySQL服务器的所有连接。
 
@@ -477,11 +549,11 @@ $HOME/etc/mysqlda.(关联对象类).save
 
 # 6. 开发示例（C语言）
 
-项目主目录的test目录里是测试实例
+项目主目录的test目录里是测试程序源码。
 
-## 6.1. 用核心业务对象选择MySQL归属库
+## 6.1. 用核心业务对象定位MySQL归属库
 
-该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库。
+该测试程序用于给定一个序号区间，批量的建立和定位MySQL归属库。
 
 > 注意：也可以直接用客户端mysql连接服务器执行SQL"select library (核心业务对象);"得到等价效果。
 
@@ -650,9 +722,9 @@ int main( int argc , char *argv[] )
 }
 ```
 
-## 6.3. 用关联对象类、关联对象选择MySQL归属库
+## 6.3. 用关联对象类、关联对象定位MySQL归属库
 
-该测试程序用于给定一个序号区间，批量的建立和选择MySQL归属库
+该测试程序用于给定一个序号区间，批量的建立和定位MySQL归属库
 
 > 注意：也可以直接用客户端mysql连接服务器执行SQL"select library\_by\_correl_object 关联对象类 关联对象;"得到等价效果。
 
@@ -732,23 +804,367 @@ int main( int argc , char *argv[] )
 }
 ```
 
-# 7. 其它注意事项
+## 6.4. 用核心业务对象定位MySQL归属库、然后批量执行INSERT语句
+
+该测试程序用于给定一个序号区间，批量的建立、定位MySQL归属库、执行INSERT语句
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_insert.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_insert begin_seqno end_seqno\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	int		begin_seqno ;
+	int		end_seqno ;
+	int		seqno ;
+	char		seqno_buffer[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	if( argc != 1 + 2 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
+	begin_seqno = atoi(argv[1]) ;
+	end_seqno = atoi(argv[2]) ;
+	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
+	{
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "select library %d" , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+		
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "insert into test_table value( '%d' , '%d' )" , seqno , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+## 6.5. 用核心业务对象定位MySQL归属库、然后批量执行UPDATE语句
+
+该测试程序用于给定一个序号区间，批量建立、定位MySQL归属库、执行UPDATE语句
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_update.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_update begin_seqno end_seqno\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	int		begin_seqno ;
+	int		end_seqno ;
+	int		seqno ;
+	char		seqno_buffer[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	if( argc != 1 + 2 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
+	begin_seqno = atoi(argv[1]) ;
+	end_seqno = atoi(argv[2]) ;
+	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
+	{
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "select library %d" , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+		
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "update test_table set value='%d' where name='%d'" , seqno , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+## 6.6. 用核心业务对象定位MySQL归属库、然后批量执行INSERT语句
+
+该测试程序用于给定一个序号区间，批量的建立、定位MySQL归属库、执行DELETE语句
+
+测试程序示例如下：
+
+```C
+$ cat test/mysqlda_test_delete.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "my_global.h"
+#include "mysql.h"
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_delete begin_seqno end_seqno\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
+{
+	MYSQL		*conn = NULL ;
+	int		begin_seqno ;
+	int		end_seqno ;
+	int		seqno ;
+	char		seqno_buffer[ 20 + 1 ] ;
+	char		sql[ 4096 + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	if( argc != 1 + 2 )
+	{
+		usage();
+		exit(7);
+	}
+	
+	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
+	
+	conn = mysql_init(NULL) ;
+	if( conn == NULL )
+	{
+		printf( "mysql_init failed\n" );
+		return 1;
+	}
+	
+	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	{
+		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
+		return 1;
+	}
+	else
+	{
+		printf( "mysql_real_connect ok\n" );
+	}
+	
+	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
+	begin_seqno = atoi(argv[1]) ;
+	end_seqno = atoi(argv[2]) ;
+	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
+	{
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "select library %d" , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+		
+		memset( sql , 0x00 , sizeof(sql) );
+		snprintf( sql , sizeof(sql) , "delete from test_table where name='%d' )" , seqno );
+		nret = mysql_query( conn , sql ) ;
+		if( nret )
+		{
+			printf( "mysql_query[%s] failed , mysql_errno[%d][%s]\n" , sql , mysql_errno(conn) , mysql_error(conn) );
+			mysql_close( conn );
+			return 1;
+		}
+		else
+		{
+			printf( "mysql_query[%s] ok\n" , sql );
+		}
+	}
+	
+	mysql_close( conn );
+	printf( "mysql_close\n" );
+	
+	return 0;
+}
+```
+
+# 7. 性能压测
+
+应用服务器经过mysqlda定位转发归属库MySQL服务器 与 直接连接MySQL服务器 有性能衰减。
+
+硬件环境为：
+PC物理机：CPU I5-7500 3.4G、内存8G、机械硬盘、WIN10
+创建了四个虚拟机：Red Hat Enterprise Linux Server release 7.3 (Maipo)
+
+软件环境为：
+mysqlda部署在192.168.6.21:13306，指向归属库192.168.6.22:3306、192.168.6.22:3306和192.168.6.22:3306。
+
+测试程序test/mysqlda_test_press.c分别与mysqlda或直接连接MySQL服务器，循环执行一万次操作集合，每个操作集合包含一条INSERT、一条SELECT、一条UPDATE和一条DELETE，测试结果如下：
+
+```Shell
+$ time ./mysqlda_test_press 192.168.6.22 3306 1 10000
+mysql_get_client_info[5.5.52-MariaDB]
+mysql_real_connect ok
+mysql_query[insert into test_table value( '1' , '1' )] ok
+mysql_query[select * from test_table where name='1'] ok
+mysql_query[update test_table set value='1_1' where name='1'] ok
+mysql_query[delete from test_table where name='1'] ok
+mysql_close
+
+real    0m32.771s
+user    0m0.056s
+sys     0m2.743s
+```
+
+```Shell
+$ time ./mysqlda_test_press 192.168.6.21 13306 1 10000
+mysql_get_client_info[5.5.52-MariaDB]
+mysql_real_connect ok
+mysql_query[select library 1] ok
+mysql_query[insert into test_table value( '1' , '1' )] ok
+mysql_query[select * from test_table where name='1'] ok
+mysql_query[update test_table set value='1_1' where name='1'] ok
+mysql_query[delete from test_table where name='1'] ok
+mysql_close
+
+real    0m39.045s
+user    0m0.055s
+sys     0m3.648s
+```
+
+目前，经过mysqlda有大约19%的性能衰减，后续要进行优化。
+
+# 8. 其它注意事项
 
 > 可以用客户端mysql直接连接mysqlda，如"mysql --host 192.168.6.21 --port 3306 -u calvin -p"，但暂时不支持命令行中直接指定数据库。登录成功后的第一条命令必须是选择后端MySQL归属库，不用指定数据库，mysqlda已经用配置文件中的参数use数据库了。
 
-# 8. 最后
+# 9. 最后
 
-## 8.1. 后续研发
+## 9.1. 后续研发
 
-* 实现mysqlda服务器集群。现在只支持mysqlda单服务器
-* 内存使用优化
-* 更多功能、更少性能衰减
+* 实现mysqlda服务器集群。现在只支持mysqlda单服务器。
+* 内存使用优化。
+* 更少性能衰减。
+* 更多功能...
 
-## 8.2. 源码托管
+## 9.2. 源码托管
 
 * [开源中国](http://git.oschina.net/calvinwilliams/mysqlda)
 * [github](https://github.com/calvinwilliams/mysqlda/)
 
-## 8.3. 作者邮箱
+## 9.3. 作者邮箱
 
 * [网易](mailto:calvinwilliams@163.com)

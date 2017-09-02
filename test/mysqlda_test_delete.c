@@ -68,7 +68,7 @@ int main( int argc , char *argv[] )
 		}
 		
 		memset( sql , 0x00 , sizeof(sql) );
-		snprintf( sql , sizeof(sql) , "delete from test_table where 'key'='%d' );" , seqno );
+		snprintf( sql , sizeof(sql) , "delete from test_table where name='%d' )" , seqno );
 		nret = mysql_query( conn , sql ) ;
 		if( nret )
 		{
