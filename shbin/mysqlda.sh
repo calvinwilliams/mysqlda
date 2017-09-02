@@ -2,7 +2,7 @@
 
 usage()
 {
-	echo "USAGE : mysqlda.sh [ status | start | stop | kill | restart ]"
+	echo "USAGE : mysqlda.sh [ status | start | stop | kill | restart | reload ]"
 }
 
 if [ $# -eq 0 ] ; then
@@ -77,6 +77,19 @@ case $1 in
 		mysqlda.sh stop
 		sleep 1
 		mysqlda.sh start
+		;;
+	reload)
+		mysqlda.sh status
+		if [ $? -ne 0 ] ; then
+			exit 1
+		fi
+		PID=`ps -f -u $USER | grep "mysqlda -a start" | grep -v grep | awk '{if($3=="1")print $2}'`
+		if [ x"$PID" = x"" ] ; then
+			echo "*** ERROR : mysqlda not existed"
+			exit 1
+		fi
+		kill -USR1 $PID
+		echo "mysqlda reload ok"
 		;;
 	*)
 		usage
