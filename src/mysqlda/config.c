@@ -12,7 +12,7 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	memset( & conf , 0x00 , sizeof(mysqlda_conf) );
 	
 	strcpy( conf.server.listen_ip , "127.0.0.1" );
-	conf.server.listen_port = 3306 ;
+	conf.server.listen_port = 13306 ;
 	
 	strcpy( conf.auth.user , "calvin" );
 	strcpy( conf.auth.pass , "calvin" );
@@ -22,7 +22,7 @@ int InitConfigFile( struct MysqldaEnvironment *p_env )
 	
 	strcpy( conf.forwards[0].instance , "mysqlda1" );
 	strcpy( conf.forwards[0].forward[0].ip , "127.0.0.1" );
-	conf.forwards[0].forward[0].port = 13306 ;
+	conf.forwards[0].forward[0].port = 3306 ;
 	conf.forwards[0]._forward_count = 1 ;
 	conf._forwards_count = 1 ;
 	

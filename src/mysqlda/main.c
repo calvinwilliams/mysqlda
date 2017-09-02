@@ -3,13 +3,14 @@
 static void usage()
 {
 	printf( "USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]\n" );
+	printf( "                                     [ --loglevel-debug | --loglevel-info | --loglevel-warn | --loglevel-error | --loglevel-fatal ]\n" );
 	printf( "                -v\n" );
 	return;
 }
 
 static void version()
 {
-	printf( "mysqlda v0.0.5.0\n" );
+	printf( "mysqlda v0.0.7.0\n" );
 	return;
 }
 
@@ -31,6 +32,7 @@ int main( int argc , char *argv[] )
 	}
 	
 	/* 解析命令行参数 */
+	p_env->log_level = LOGLEVEL_ERROR ;
 	for( i = 0 ; i < argc ; i++ )
 	{
 		if( strcmp( argv[i] , "-f" ) == 0 && i + 1 < argc )
@@ -44,6 +46,26 @@ int main( int argc , char *argv[] )
 		else if( strcmp( argv[i] , "--no-daemon" ) == 0 )
 		{
 			p_env->no_daemon_flag = 1 ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-debug" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_DEBUG ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-info" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_INFO ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-warn" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_WARN ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-error" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_ERROR ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-fatal" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_FATAL ;
 		}
 		else if( strcmp( argv[i] , "-a" ) == 0 && i + 1 < argc )
 		{
