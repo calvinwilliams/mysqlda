@@ -6,15 +6,25 @@
 #include "my_global.h"
 #include "mysql.h"
 
+/*
+./mysqlda_test_set_correl_object "192.168.6.21" 13306 calvin calvin calvindb card_no 330001 1
+*/
+
 static void usage()
 {
-	printf( "USAGE : mysqlda_test_set_correl_object correl_object_class correl_object library\n" );
+	printf( "USAGE : mysqlda_test_set_correl_object (ip) (port) (user) (pass) (database) (correl_object_class) (correl_object) (library)\n" );
 	return;
 }
 
 int main( int argc , char *argv[] )
 {
 	MYSQL		*conn = NULL ;
+	char		*ip = NULL ;
+	unsigned int	port ;
+	char		*user = NULL ;
+	char		*pass = NULL ;
+	char		*database = NULL ;
+	
 	char		*correl_object_class = NULL ;
 	char		*correl_object = NULL ;
 	char		*library = NULL ;
@@ -22,7 +32,7 @@ int main( int argc , char *argv[] )
 	
 	int		nret = 0 ;
 	
-	if( argc != 1 + 3 )
+	if( argc != 1 + 8 )
 	{
 		usage();
 		exit(7);
@@ -37,7 +47,12 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	ip = argv[1] ;
+	port = (unsigned int)atoi(argv[2]) ;
+	user = argv[3] ;
+	pass = argv[4] ;
+	database = argv[5] ;
+	if( mysql_real_connect( conn , ip , user , pass , database , port , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -47,9 +62,9 @@ int main( int argc , char *argv[] )
 		printf( "mysql_real_connect ok\n" );
 	}
 	
-	correl_object_class = argv[1] ;
-	correl_object = argv[2] ;
-	library = argv[3] ;
+	correl_object_class = argv[6] ;
+	correl_object = argv[7] ;
+	library = argv[8] ;
 	
 	memset( sql , 0x00 , sizeof(sql) );
 	snprintf( sql , sizeof(sql) , "set correl_object %s %s %s" , correl_object_class , correl_object , library );

@@ -37,7 +37,7 @@ TLS pid_t	g_pid ;
 TLS struct timeval	g_last_tv = { 0 , 0 } ;
 TLS char		g_last_date_time_buf[ 10+1+8 + 1 ] = "" ;
 
-const char log_level_itoa[][6] = { "" , "DEBUG" , "INFO" , "WARN" , "ERROR" , "FATAL" } ;
+const char log_level_itoa[][7] = { "" , "DEBUG" , "INFO" , "NOTICE" , "WARN" , "ERROR" , "FATAL" } ;
 
 /* 设置日志文件名 */
 void SetLogFile( char *format , ... )
@@ -128,7 +128,7 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	log_buflen = 0 ;
 	log_buf_remain_len = sizeof(log_buffer) - 1 ;
 	
-	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | %d:%s:%ld | " , g_last_date_time_buf , (long)(tv.tv_usec) , log_level_itoa[log_level] , g_pid , p_c_filename , c_fileline ) ;
+	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-6s | %d:%s:%ld | " , g_last_date_time_buf , (long)(tv.tv_usec) , log_level_itoa[log_level] , g_pid , p_c_filename , c_fileline ) ;
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	len = VSNPRINTF( log_bufptr , log_buf_remain_len , format , valist );
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
@@ -226,6 +226,20 @@ int WarnLog( char *c_filename , long c_fileline , char *format , ... )
 	
 	va_start( valist , format );
 	WriteLogBaseV( LOGLEVEL_WARN , c_filename , c_fileline , format , valist );
+	va_end( valist );
+	
+	return 0;
+}
+
+int NoticeLog( char *c_filename , long c_fileline , char *format , ... )
+{
+	va_list		valist ;
+	
+	if( LOGLEVEL_NOTICE < g_log_level )
+		return 0;
+	
+	va_start( valist , format );
+	WriteLogBaseV( LOGLEVEL_NOTICE , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
@@ -435,6 +449,20 @@ int WarnHexLog( char *c_filename , long c_fileline , char *buf , long buflen , c
 	
 	va_start( valist , format );
 	WriteHexLogBaseV( LOGLEVEL_WARN , c_filename , c_fileline , buf , buflen , format , valist );
+	va_end( valist );
+	
+	return 0;
+}
+
+int NoticeHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+{
+	va_list		valist ;
+	
+	if( LOGLEVEL_NOTICE < g_log_level )
+		return 0;
+	
+	va_start( valist , format );
+	WriteHexLogBaseV( LOGLEVEL_NOTICE , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;

@@ -80,9 +80,10 @@ extern "C" {
 #ifndef LOGLEVEL_DEBUG
 #define LOGLEVEL_DEBUG		1
 #define LOGLEVEL_INFO		2
-#define LOGLEVEL_WARN		3
-#define LOGLEVEL_ERROR		4
-#define LOGLEVEL_FATAL		5
+#define LOGLEVEL_NOTICE		3
+#define LOGLEVEL_WARN		4
+#define LOGLEVEL_ERROR		5
+#define LOGLEVEL_FATAL		6
 #endif
 
 void SetLogFile( char *format , ... );
@@ -114,6 +115,10 @@ int WriteLogBase( int log_level , char *c_filename , long c_fileline , char *for
 	if( LOGLEVEL_WARN >= g_log_level ) \
 		WriteLogBase( LOGLEVEL_WARN , _c_filename_ , _c_fileline_ , __VA_ARGS__ );
 
+#define NoticeLog(_c_filename_,_c_fileline_,...) \
+	if( LOGLEVEL_NOTICE >= g_log_level ) \
+		WriteLogBase( LOGLEVEL_NOTICE , _c_filename_ , _c_fileline_ , __VA_ARGS__ );
+
 #define InfoLog(_c_filename_,_c_fileline_,...) \
 	if( LOGLEVEL_INFO >= g_log_level ) \
 		WriteLogBase( LOGLEVEL_INFO , _c_filename_ , _c_fileline_ , __VA_ARGS__ );
@@ -141,6 +146,10 @@ int WriteHexLogBase( int log_level , char *c_filename , long c_fileline , char *
 	if( LOGLEVEL_WARN >= g_log_level ) \
 		WriteHexLogBase( LOGLEVEL_WARN , _c_filename_ , _c_fileline_ , _buf_ , _buflen_ , __VA_ARGS__ );
 
+#define NoticeHexLog(_c_filename_,_c_fileline_,_buf_,_buflen_,...) \
+	if( LOGLEVEL_NOTICE >= g_log_level ) \
+		WriteHexLogBase( LOGLEVEL_NOTICE , _c_filename_ , _c_fileline_ , _buf_ , _buflen_ , __VA_ARGS__ );
+
 #define InfoHexLog(_c_filename_,_c_fileline_,_buf_,_buflen_,...) \
 	if( LOGLEVEL_INFO >= g_log_level ) \
 		WriteHexLogBase( LOGLEVEL_INFO , _c_filename_ , _c_fileline_ , _buf_ , _buflen_ , __VA_ARGS__ );
@@ -155,6 +164,7 @@ int WriteLog( int log_level , char *c_filename , long c_fileline , char *format 
 int FatalLog( char *c_filename , long c_fileline , char *format , ... );
 int ErrorLog( char *c_filename , long c_fileline , char *format , ... );
 int WarnLog( char *c_filename , long c_fileline , char *format , ... );
+int NoticeLog( char *c_filename , long c_fileline , char *format , ... );
 int InfoLog( char *c_filename , long c_fileline , char *format , ... );
 int DebugLog( char *c_filename , long c_fileline , char *format , ... );
 
@@ -162,6 +172,7 @@ int WriteHexLog( int log_level , char *c_filename , long c_fileline , char *buf 
 int FatalHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
 int ErrorHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
 int WarnHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
+int NoticeHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
 int InfoHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
 int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... );
 
@@ -173,15 +184,17 @@ int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , 
 #define FATALLOG(...)			FatalLog( __FILE__ , __LINE__ , __VA_ARGS__ );
 #define ERRORLOG(...)			ErrorLog( __FILE__ , __LINE__ , __VA_ARGS__ );
 #define WARNLOG(...)			WarnLog( __FILE__ , __LINE__ , __VA_ARGS__ );
+#define NOTICELOG(...)			NoticeLog( __FILE__ , __LINE__ , __VA_ARGS__ );
 #define INFOLOG(...)			InfoLog( __FILE__ , __LINE__ , __VA_ARGS__ );
 #define DEBUGLOG(...)			DebugLog( __FILE__ , __LINE__ , __VA_ARGS__ );
 
 #define WRITEHEXLOG(_log_level_,_buf_,_buflen_,...)	WriteHexLog( _log_level_ , __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
-#define FATALHEXLOG(_buf_,_buflen_,...)	FatalHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
-#define ERRORHEXLOG(_buf_,_buflen_,...)	ErrorHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
-#define WARNHEXLOG(_buf_,_buflen_,...)	WarnHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
-#define INFOHEXLOG(_buf_,_buflen_,...)	InfoHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
-#define DEBUGHEXLOG(_buf_,_buflen_,...)	DebugHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define FATALHEXLOG(_buf_,_buflen_,...)		FatalHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define ERRORHEXLOG(_buf_,_buflen_,...)		ErrorHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define WARNHEXLOG(_buf_,_buflen_,...)		WarnHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define NOTICEHEXLOG(_buf_,_buflen_,...)	NoticeHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define INFOHEXLOG(_buf_,_buflen_,...)		InfoHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
+#define DEBUGHEXLOG(_buf_,_buflen_,...)		DebugHexLog( __FILE__ , __LINE__ , _buf_ , _buflen_ , __VA_ARGS__ );
 
 #endif
 
@@ -192,6 +205,7 @@ int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , 
 #define fatal_log		FatalLog
 #define error_log		ErrorLog
 #define warn_log		WarnLog
+#define notice_log		NoticeLog
 #define info_log		InfoLog
 #define debug_log		DebugLog
 
@@ -199,6 +213,7 @@ int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , 
 #define fatal_hex_log		FatalHexLog
 #define error_hex_log		ErrorHexLog
 #define warn_hex_log		WarnHexLog
+#define notice_hex_log		NoticeHexLog
 #define info_hex_log		InfoHexLog
 #define debug_hex_log		DebugHexLog
 

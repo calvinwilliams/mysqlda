@@ -6,9 +6,15 @@
 #include "my_global.h"
 #include "mysql.h"
 
+/*
+time ./mysqlda_test_press "192.168.6.22" 3306 calvin calvin calvindb 1 10000 ; time ./mysqlda_test_press "192.168.6.21" 13306 calvin calvin calvindb 1 10000
+*/
+
 static void usage()
 {
-	printf( "USAGE : mysqlda_test_press ip port begin_seqno end_seqno\n" );
+	printf( "USAGE : mysqlda_test_press (ip) (port) (user) (pass) (database) (begin_seqno) (end_seqno)\n" );
+	printf( "NOTICE :                      if port == 13306 then connect mysqlda\n" );
+	printf( "                              if port == 3306 then connect mysql\n" );
 	return;
 }
 
@@ -17,7 +23,11 @@ int main( int argc , char *argv[] )
 	MYSQL		*conn = NULL ;
 	MYSQL_RES	*result = NULL ;
 	char		*ip = NULL ;
-	int		port ;
+	unsigned int	port ;
+	char		*user = NULL ;
+	char		*pass = NULL ;
+	char		*database = NULL ;
+	
 	int		begin_seqno ;
 	int		end_seqno ;
 	int		seqno ;
@@ -26,7 +36,7 @@ int main( int argc , char *argv[] )
 	
 	int		nret = 0 ;
 	
-	if( argc != 1 + 4 )
+	if( argc != 1 + 7 )
 	{
 		usage();
 		exit(7);
@@ -42,8 +52,11 @@ int main( int argc , char *argv[] )
 	}
 	
 	ip = argv[1] ;
-	port = atoi(argv[2]) ;
-	if( mysql_real_connect( conn , ip , "calvin" , "calvin" , "calvindb" , port , NULL , 0 ) == NULL )
+	port = (unsigned int)atoi(argv[2]) ;
+	user = argv[3] ;
+	pass = argv[4] ;
+	database = argv[5] ;
+	if( mysql_real_connect( conn , ip , user , pass , database , port , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -54,8 +67,8 @@ int main( int argc , char *argv[] )
 	}
 	
 	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
-	begin_seqno = atoi(argv[3]) ;
-	end_seqno = atoi(argv[4]) ;
+	begin_seqno = atoi(argv[6]) ;
+	end_seqno = atoi(argv[7]) ;
 	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
 	{
 		if( port == 13306 )

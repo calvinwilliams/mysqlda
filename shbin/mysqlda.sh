@@ -2,7 +2,7 @@
 
 usage()
 {
-	echo "USAGE : mysqlda.sh [ status | start | stop | kill | restart | reload ]"
+	echo "USAGE : mysqlda.sh [ status | start | stop | kill | restart | reload ] *"
 }
 
 if [ $# -eq 0 ] ; then

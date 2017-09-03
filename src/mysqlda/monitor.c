@@ -66,13 +66,13 @@ _GOTO_RETRY_FORK :
 		}
 		else if( pid == 0 )
 		{
-			INFOLOG( "[%d]fork[%d] ok" , getppid() , getpid() );
+			NOTICELOG( "[%d]fork[%d] ok" , getppid() , getpid() );
 			close( p_env->alive_pipe_session.alive_pipe[1] );
 			exit( worker((void*)p_env) );
 		}
 		else
 		{
-			INFOLOG( "[%d]fork[%d] ok" , getpid() , pid );
+			NOTICELOG( "[%d]fork[%d] ok" , getpid() , pid );
 			close( p_env->alive_pipe_session.alive_pipe[0] );
 		}
 		

@@ -6,15 +6,25 @@
 #include "my_global.h"
 #include "mysql.h"
 
+/*
+./mysqlda_test_insert "192.168.6.21" 13306 calvin calvin calvindb 1 1000
+*/
+
 static void usage()
 {
-	printf( "USAGE : mysqlda_test_insert begin_seqno end_seqno\n" );
+	printf( "USAGE : mysqlda_test_insert (ip) (port) (user) (pass) (database) (begin_seqno) (end_seqno)\n" );
 	return;
 }
 
 int main( int argc , char *argv[] )
 {
 	MYSQL		*conn = NULL ;
+	char		*ip = NULL ;
+	unsigned int	port ;
+	char		*user = NULL ;
+	char		*pass = NULL ;
+	char		*database = NULL ;
+	
 	int		begin_seqno ;
 	int		end_seqno ;
 	int		seqno ;
@@ -23,7 +33,7 @@ int main( int argc , char *argv[] )
 	
 	int		nret = 0 ;
 	
-	if( argc != 1 + 2 )
+	if( argc != 1 + 7 )
 	{
 		usage();
 		exit(7);
@@ -38,7 +48,12 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	ip = argv[1] ;
+	port = (unsigned int)atoi(argv[2]) ;
+	user = argv[3] ;
+	pass = argv[4] ;
+	database = argv[5] ;
+	if( mysql_real_connect( conn , ip , user , pass , database , port , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;
@@ -49,8 +64,8 @@ int main( int argc , char *argv[] )
 	}
 	
 	memset( seqno_buffer , 0x00 , sizeof(seqno_buffer) );
-	begin_seqno = atoi(argv[1]) ;
-	end_seqno = atoi(argv[2]) ;
+	begin_seqno = atoi(argv[6]) ;
+	end_seqno = atoi(argv[7]) ;
 	for( seqno = begin_seqno ; seqno <= end_seqno ; seqno++ )
 	{
 		memset( sql , 0x00 , sizeof(sql) );

@@ -25,7 +25,6 @@ static char *StrdupResponseMessage( struct MysqldaEnvironment *p_env , int sock 
 		
 		length += len ;
 	}
-	DEBUGHEXLOG( select_version_comment_response_header , 4 , "select_version_comment_response_header" );
 	
 	(*p_length) = MYSQL_COMMLEN( select_version_comment_response_header ) ;
 	p = (char*)malloc( 4+(*p_length) ) ;
@@ -67,6 +66,9 @@ static int GetSelectVersionCommentMessage( struct MysqldaEnvironment *p_env , MY
 	int		need_send_len ;
 	int		sended_len ;
 	
+	int		column_count ;
+	int		column_no ;
+	
 	/* 填充请求报文 */
 	need_send_len = sprintf( request , "1230\x03select @@version_comment limit 1" ) ;
 	len = need_send_len - 3 - 1 ;
@@ -96,15 +98,23 @@ static int GetSelectVersionCommentMessage( struct MysqldaEnvironment *p_env , MY
 		return -1;
 	}
 	
-	/* 接收响应报文2 */
-	p_env->select_version_comment_response_message2 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message2_length) ) ;
-	if( p_env->select_version_comment_response_message2 == NULL )
+	column_count = p_env->select_version_comment_response_message[4] ;
+	
+	
+	/* 接收字段名信息 */
+	for( column_no = 0 ; column_no < column_count ; column_no++ )
 	{
-		ERRORLOG( "StrdupResponseMessage failed , errno[%d]" , errno );
-		return -1;
+		if( p_env->select_version_comment_response_message2 )
+			free( p_env->select_version_comment_response_message2 );
+		p_env->select_version_comment_response_message2 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message2_length) ) ;
+		if( p_env->select_version_comment_response_message2 == NULL )
+		{
+			ERRORLOG( "StrdupResponseMessage failed , errno[%d]" , errno );
+			return -1;
+		}
 	}
 	
-	/* 接收响应报文3 */
+	/* 接收EOF */
 	p_env->select_version_comment_response_message3 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message3_length) ) ;
 	if( p_env->select_version_comment_response_message3 == NULL )
 	{
@@ -112,15 +122,20 @@ static int GetSelectVersionCommentMessage( struct MysqldaEnvironment *p_env , MY
 		return -1;
 	}
 	
-	/* 接收响应报文4 */
-	p_env->select_version_comment_response_message4 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message4_length) ) ;
-	if( p_env->select_version_comment_response_message4 == NULL )
+	/* 接收字段值信息 */
+	for( column_no = 0 ; column_no < column_count ; column_no++ )
 	{
-		ERRORLOG( "StrdupResponseMessage failed , errno[%d]" , errno );
-		return -1;
+		if( p_env->select_version_comment_response_message4 )
+			free( p_env->select_version_comment_response_message4 );
+		p_env->select_version_comment_response_message4 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message4_length) ) ;
+		if( p_env->select_version_comment_response_message4 == NULL )
+		{
+			ERRORLOG( "StrdupResponseMessage failed , errno[%d]" , errno );
+			return -1;
+		}
 	}
 	
-	/* 接收响应报文5 */
+	/* 接收EOF */
 	p_env->select_version_comment_response_message5 = StrdupResponseMessage( p_env , mysql_connection->net.fd , & (p_env->select_version_comment_response_message5_length) ) ;
 	if( p_env->select_version_comment_response_message5 == NULL )
 	{
@@ -201,7 +216,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_create ok , #%d#" , p_env->epoll_fd );
+		NOTICELOG( "epoll_create ok , #%d#" , p_env->epoll_fd );
 	}
 	
 	/* 加入存活管道可读事件到epoll */
@@ -216,7 +231,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_ctl #%d# add alive_pipe_session #%d# ok" , p_env->epoll_fd , p_env->alive_pipe_session.alive_pipe[0] );
+		NOTICELOG( "epoll_ctl #%d# add alive_pipe_session #%d# ok" , p_env->epoll_fd , p_env->alive_pipe_session.alive_pipe[0] );
 	}
 	
 	/* 创建套接字 */
@@ -228,7 +243,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "socket ok , #%d#" , p_env->listen_session.netaddr.sock );
+		NOTICELOG( "socket ok , #%d#" , p_env->listen_session.netaddr.sock );
 	}
 	
 	SetHttpNonblock( p_env->listen_session.netaddr.sock );
@@ -245,7 +260,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "bind[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
+		NOTICELOG( "bind[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 处于侦听状态了 */
@@ -257,7 +272,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "listen[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
+		NOTICELOG( "listen[%s:%d] #%d# ok" , p_env->listen_session.netaddr.ip , p_env->listen_session.netaddr.port , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 加入侦听可读事件到epoll */
@@ -272,7 +287,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_ctl #%d# add listen_session #%d# ok" , p_env->epoll_fd , p_env->listen_session.netaddr.sock );
+		NOTICELOG( "epoll_ctl #%d# add listen_session #%d# ok" , p_env->epoll_fd , p_env->listen_session.netaddr.sock );
 	}
 	
 	/* 检查所有后端数据库连接 */
@@ -290,7 +305,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		}
 		
 		p_forward_server = lk_list_first_entry( & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode ) ;
-		INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+		NOTICELOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ..." , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		if( mysql_real_connect( mysql_connection , p_forward_server->netaddr.ip , p_env->user , p_env->pass , p_env->db , p_forward_server->netaddr.port , NULL , 0 ) == NULL )
 		{
 			ERRORLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] failed , mysql_errno[%d][%s]" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db , mysql_errno(mysql_connection) , mysql_error(mysql_connection) );
@@ -299,7 +314,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
+			NOTICELOG( "[%s]mysql_real_connect[%s][%d][%s][%s][%s] connecting ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port , p_env->user , p_env->pass , p_env->db );
 		}
 		
 		if( p_env->select_version_comment_response_message == NULL )
@@ -310,7 +325,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 				return nret;
 		}
 		
-		INFOLOG( "[%s]mysql_close[%s][%d] ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+		NOTICELOG( "[%s]mysql_close[%s][%d] ok" , p_forward_instance->instance , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		mysql_close( mysql_connection );
 	}
 	
@@ -331,7 +346,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		{
 			if( errno == EINTR )
 			{
-				INFOLOG( "epoll_wait #%d# interrupted" , p_env->epoll_fd );
+				NOTICELOG( "epoll_wait #%d# interrupted" , p_env->epoll_fd );
 				break;
 			}
 			else
@@ -342,7 +357,7 @@ static int _worker( struct MysqldaEnvironment *p_env )
 		}
 		else
 		{
-			INFOLOG( "epoll_wait #%d# return[%d]events" , p_env->epoll_fd , epoll_nfds );
+			NOTICELOG( "epoll_wait #%d# return[%d]events" , p_env->epoll_fd , epoll_nfds );
 		}
 		
 		/* 处理所有事件 */
@@ -605,7 +620,7 @@ int worker( void *pv )
 	/* 卸载配置 */
 	UnloadConfig( p_env );
 	
-	INFOLOG( "worker exit ..." );
+	NOTICELOG( "worker exit ..." );
 	
 	return -nret;
 }

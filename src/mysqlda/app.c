@@ -232,16 +232,35 @@ int FormatAuthResultOk( struct MysqldaEnvironment *p_env , struct AcceptedSessio
 /* 填充服务端的查询版本号分组 */
 int FormatSelectVersionCommentResponse( struct MysqldaEnvironment *p_env , struct AcceptedSession *p_accepted_session )
 {
-	memcpy( p_accepted_session->comm_buffer , p_env->select_version_comment_response_message , 4+p_env->select_version_comment_response_message_length );
-	p_accepted_session->fill_len = 4+p_env->select_version_comment_response_message_length ;
-	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message2 , 4+p_env->select_version_comment_response_message2_length );
-	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message2_length ;
-	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message3 , 4+p_env->select_version_comment_response_message3_length );
-	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message3_length ;
-	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message4 , 4+p_env->select_version_comment_response_message4_length );
-	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message4_length ;
-	memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message5 , 4+p_env->select_version_comment_response_message5_length );
-	p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message5_length ;
+	if( p_env->select_version_comment_response_message )
+	{
+		memcpy( p_accepted_session->comm_buffer , p_env->select_version_comment_response_message , 4+p_env->select_version_comment_response_message_length );
+		p_accepted_session->fill_len = 4+p_env->select_version_comment_response_message_length ;
+	}
+	
+	if( p_env->select_version_comment_response_message2 )
+	{
+		memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message2 , 4+p_env->select_version_comment_response_message2_length );
+		p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message2_length ;
+	}
+	
+	if( p_env->select_version_comment_response_message3 )
+	{
+		memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message3 , 4+p_env->select_version_comment_response_message3_length );
+		p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message3_length ;
+	}
+	
+	if( p_env->select_version_comment_response_message4 )
+	{
+		memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message4 , 4+p_env->select_version_comment_response_message4_length );
+		p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message4_length ;
+	}
+	
+	if( p_env->select_version_comment_response_message5 )
+	{
+		memcpy( p_accepted_session->comm_buffer+p_accepted_session->fill_len , p_env->select_version_comment_response_message5 , 4+p_env->select_version_comment_response_message5_length );
+		p_accepted_session->fill_len += 4+p_env->select_version_comment_response_message5_length ;
+	}
 	
 	p_accepted_session->comm_body_len = p_accepted_session->fill_len-3-1 ;
 	p_accepted_session->process_len = 0 ;
@@ -337,7 +356,9 @@ int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 	struct ForwardInstance	*p_travel_forward_instance = NULL ;
 	
 	int			fd ;
-	char			*p_date_time_string = NULL ;
+	time_t			tt ;
+	struct tm		stime ;
+	char			date_time_string[ 10 + 1 + 8 + 1 ] ;
 	
 	int			nret = 0 ;
 	
@@ -392,8 +413,11 @@ int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 			return 1;
 		}
 		
-		p_date_time_string = GetLogLastDateTimeStringPtr() ;
-		write( fd , p_date_time_string , strlen(p_date_time_string) );
+		tt = time(NULL) ;
+		localtime_r( & tt , & stime );
+		strftime( date_time_string , sizeof(date_time_string) , "%Y-%m-%d %H:%M:%S" , & stime );
+		
+		write( fd , date_time_string , strlen(date_time_string) );
 		write( fd , " " , 1 );
 		write( fd , p_forward_library->library , strlen(p_forward_library->library) );
 		write( fd , " " , 1 );
@@ -401,6 +425,9 @@ int SelectDatabaseLibrary( struct MysqldaEnvironment *p_env , struct AcceptedSes
 		write( fd , "\n" , 1 );
 		
 		close( fd );
+		INFOLOG( "write[%s] ok" , p_env->save_filename );
+		
+		p_env->forward_library_count++;
 		
 		/* 输出服务端库权重到日志 */
 		p_travel_forward_instance = NULL ;
@@ -467,7 +494,9 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 	
 	char				correl_object_class_save_pathfilename[ 256 + 1 ] ;
 	int				fd ;
-	char				*p_date_time_string = NULL ;
+	time_t				tt ;
+	struct tm			stime ;
+	char				date_time_string[ 10 + 1 + 8 + 1 ] ;
 	
 	int				nret = 0 ;
 	
@@ -520,6 +549,8 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 		}
 	}
 	
+	p_env->forward_correl_object_class_count++;
+	
 	/* 查询服务端转发关联对象树 */
 	p_forward_correl_object = QueryForwardCorrelObjectTreeNode( p_forward_correl_object_class , & forward_correl_object ) ;
 	if( p_forward_correl_object == NULL )
@@ -547,6 +578,8 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 		}
 	}
 	
+	p_forward_correl_object_class->forward_correl_object_count++;
+	
 	/* 查询服务端转发规则树 */
 	p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
 	if( p_forward_library == NULL )
@@ -562,7 +595,7 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 		{
 			/* 持久化关联规则到硬盘 */
 			memset( correl_object_class_save_pathfilename , 0x00 , sizeof(correl_object_class_save_pathfilename) );
-			snprintf( correl_object_class_save_pathfilename , sizeof(correl_object_class_save_pathfilename)-1 , "mysqlda.%s.save" , p_forward_correl_object_class->correl_object_class );
+			snprintf( correl_object_class_save_pathfilename , sizeof(correl_object_class_save_pathfilename)-1 , "%s/etc/mysqlda.%s.save" , getenv("HOME") , p_forward_correl_object_class->correl_object_class );
 			fd = open( correl_object_class_save_pathfilename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
 			if( fd == -1 )
 			{
@@ -571,8 +604,11 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 			}
 			else
 			{
-				p_date_time_string = GetLogLastDateTimeStringPtr() ;
-				write( fd , p_date_time_string , strlen(p_date_time_string) );
+				tt = time(NULL) ;
+				localtime_r( & tt , & stime );
+				strftime( date_time_string , sizeof(date_time_string) , "%Y-%m-%d %H:%M:%S" , & stime );
+				
+				write( fd , date_time_string , strlen(date_time_string) );
 				write( fd , " " , 1 );
 				write( fd , p_forward_correl_object->correl_object , strlen(p_forward_correl_object->correl_object) );
 				write( fd , " " , 1 );
@@ -580,6 +616,7 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 				write( fd , "\n" , 1 );
 				
 				close( fd );
+				INFOLOG( "write[%s] ok" , correl_object_class_save_pathfilename );
 				
 				p_forward_correl_object->p_forward_library = p_forward_library ;
 			}
@@ -590,6 +627,8 @@ int SetDatabaseCorrelObject( struct MysqldaEnvironment *p_env , struct AcceptedS
 				p_forward_library = NULL ;
 		}
 	}
+	
+	p_env->forward_library_count++;
 	
 	return 0;
 }
