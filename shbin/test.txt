@@ -1,0 +1,18 @@
+mysql --host 192.168.6.21 --port 13306 -u calvin -p
+
+mysql --host 192.168.6.22 --port 3306 -u calvin -p
+
+select library 1;
+select library 3;
+select library 11;
+select library 12;
+select library 13;
+select library 14;
+set correl_object card_no 330001 1;
+set correl_object card_no 330002 2;
+set correl_object card_no 330003 3;
+set correl_object account_no 1234567890 11;
+select library_by_correl_object card_no 330001;
+select library_by_correl_object card_no 330002;
+select library_by_correl_object account_no 1234567890;
+

@@ -106,14 +106,14 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
 	if( file_buffer == NULL )
 	{
-		ERRORLOG( "*** ERROR : config file[%s] not found , errno[%d]" , p_env->config_filename , errno );
+		printf( "*** ERROR : config file[%s] not found , errno[%d]\n" , p_env->config_filename , errno );
 		return -1;
 	}
 	
 	p_conf = (mysqlda_conf *)malloc( sizeof(mysqlda_conf) ) ;
 	if( p_conf == NULL )
 	{
-		ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+		printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 		return -1;
 	}
 	
@@ -122,7 +122,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	free( file_buffer );
 	if( nret )
 	{
-		ERRORLOG( "*** ERROR : DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]" , p_env->config_filename , nret );
+		printf( "*** ERROR : DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]\n" , p_env->config_filename , nret );
 		return -1;
 	}
 	
@@ -134,7 +134,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 	
 	if( p_conf->_forwards_count <= 0 )
 	{
-		ERRORLOG( "*** ERROR : forwards not found" );
+		printf( "*** ERROR : forwards not found\n" );
 		return -1;
 	}
 	
@@ -145,7 +145,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		p_forward_instance = (struct ForwardInstance *)malloc( sizeof(struct ForwardInstance) ) ;
 		if( p_forward_instance == NULL )
 		{
-			ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+			printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 			return -1;
 		}
 		memset( p_forward_instance , 0x00 , sizeof(struct ForwardInstance) );
@@ -156,7 +156,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		
 		if( p_conf->forwards[forwards_no]._forward_count <= 0 )
 		{
-			ERRORLOG( "*** ERROR : forward not found" );
+			printf( "*** ERROR : forward not found\n" );
 			return -1;
 		}
 		
@@ -167,7 +167,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
 			if( p_forward_server == NULL )
 			{
-				ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+				printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 				return -1;
 			}
 			memset( p_forward_server , 0x00 , sizeof(struct ForwardServer) );
@@ -186,14 +186,14 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		nret = LinkForwardInstanceTreeNode( p_env , p_forward_instance );
 		if( nret )
 		{
-			ERRORLOG( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]" , nret , errno );
+			printf( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]\n" , nret , errno );
 			return -1;
 		}
 		
 		nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
 		if( nret )
 		{
-			ERRORLOG( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
+			printf( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]\n" , nret , errno );
 			return -1;
 		}
 		
@@ -221,12 +221,12 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			if( fscanf( fp , "%*s%*s%s%s\n" , forward_library.library , forward_instance.instance ) == EOF )
 				break;
 			if( forward_library.library[0] == '\0' || forward_instance.instance[0] == '\0' )
-				break;
+				continue;
 			
 			p_forward_library = (struct ForwardLibrary *)malloc( sizeof(struct ForwardLibrary) ) ;
 			if( p_forward_library == NULL )
 			{
-				ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+				printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 				fclose( fp );
 				return -1;
 			}
@@ -235,7 +235,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			p_forward_library->p_forward_instance = QueryForwardInstanceTreeNode( p_env , & forward_instance ) ;
 			if( p_forward_library->p_forward_instance == NULL )
 			{
-				ERRORLOG( "*** ERROR : instance[%s] not found in %s" , forward_instance.instance , p_env->save_filename );
+				printf( "*** ERROR : instance[%s] not found in %s\n" , forward_instance.instance , p_env->save_filename );
 				fclose( fp );
 				return -1;
 			}
@@ -243,16 +243,20 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 			nret = LinkForwardLibraryTreeNode( p_env , p_forward_library ) ;
 			if( nret )
 			{
-				ERRORLOG( "*** ERROR : LinkForwardLibraryTreeNode[%s][%s] failed[%d]" , forward_library.library , forward_instance.instance , nret );
+				printf( "*** ERROR : LinkForwardLibraryTreeNode[%s][%s] failed[%d]\n" , forward_library.library , forward_instance.instance , nret );
 				fclose( fp );
 				return -1;
 			}
 			
 			IncreaseForwardInstanceTreeNodePower( p_env , p_forward_library->p_forward_instance );
+			
+			p_env->forward_library_count++;
 		}
 		
 		fclose( fp );
 	}
+	
+	NOTICELOG( "Load forward_library %s ok , count[%d]" , p_env->save_filename , p_env->forward_library_count );
 	
 	/* 装载服务端转发关联规则历史 持久化文件 */
 	memset( etc_pathname , 0x00 , sizeof(etc_pathname) );
@@ -273,7 +277,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 					p_forward_correl_object_class = (struct ForwardCorrelObjectClass *)malloc( sizeof(struct ForwardCorrelObjectClass) ) ;
 					if( p_forward_correl_object_class == NULL )
 					{
-						ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+						printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 						closedir( dp );
 						return -1;
 					}
@@ -284,7 +288,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 					nret = LinkForwardCorrelObjectClassTreeNode( p_env , p_forward_correl_object_class ) ;
 					if( nret )
 					{
-						ERRORLOG( "*** ERROR : LinkForwardCorrelObjectClassTreeNode failed[%d]" , nret );
+						printf( "*** ERROR : LinkForwardCorrelObjectClassTreeNode failed[%d]\n" , nret );
 						closedir( dp );
 						return -1;
 					}
@@ -294,7 +298,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 					fp = fopen( forward_correl_object_class_pathfilename , "r" ) ;
 					if( fp == NULL )
 					{
-						ERRORLOG( "*** ERROR : fopen[%s] failed , errno[%d]" , forward_correl_object_class_pathfilename , errno );
+						printf( "*** ERROR : fopen[%s] failed , errno[%d]\n" , forward_correl_object_class_pathfilename , errno );
 						closedir( dp );
 						return -1;
 					}
@@ -306,12 +310,12 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 						if( fscanf( fp , "%*s%*s%s%s\n" , forward_correl_object.correl_object , forward_library.library ) == EOF )
 							break;
 						if( forward_correl_object.correl_object[0] == '\0' || forward_library.library[0] == '\0' )
-							break;
+							continue;
 						
 						p_forward_correl_object = (struct ForwardCorrelObject *)malloc( sizeof(struct ForwardCorrelObject) ) ;
 						if( p_forward_correl_object == NULL )
 						{
-							ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+							printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 							fclose( fp );
 							closedir( dp );
 							return -1;
@@ -323,7 +327,7 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 						p_forward_correl_object->p_forward_library = QueryForwardLibraryTreeNode( p_env , & forward_library ) ;
 						if( p_forward_correl_object->p_forward_library == NULL )
 						{
-							ERRORLOG( "*** ERROR : instance[%s] not found in %s" , forward_instance.instance , p_env->save_filename );
+							printf( "*** ERROR : instance[%s] not found in %s\n" , forward_instance.instance , p_env->save_filename );
 							fclose( fp );
 							closedir( dp );
 							return -1;
@@ -332,21 +336,27 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 						nret = LinkForwardCorrelObjectTreeNode( p_forward_correl_object_class , p_forward_correl_object ) ;
 						if( nret )
 						{
-							ERRORLOG( "*** ERROR : LinkForwardCorrelObjectTreeNode[%s][%s] failed[%d]" , p_forward_correl_object_class->correl_object_class , p_forward_correl_object->correl_object , nret );
+							printf( "*** ERROR : LinkForwardCorrelObjectTreeNode[%s][%s] failed[%d]\n" , p_forward_correl_object_class->correl_object_class , p_forward_correl_object->correl_object , nret );
 							fclose( fp );
 							return -1;
 						}
+						
+						p_forward_correl_object_class->forward_correl_object_count++;
 					}
 					
 					fclose( fp );
+					
+					NOTICELOG( "Load forward_correl_object_class %s ok , count[%d]" , forward_correl_object_class_pathfilename , p_forward_correl_object_class->forward_correl_object_count );
+					
+					p_env->forward_correl_object_class_count++;
 				}
 			}
 		}
 		
 		closedir( dp );
+		
+		NOTICELOG( "Load all forward_correl_object_class ok , count[%d]" , p_env->forward_correl_object_class_count );
 	}
-	
-	INFOLOG( "Load %s ok" , p_env->save_filename );
 	
 	/* 输出所有服务端转发库权重到日志 */
 	p_forward_instance = NULL ;
@@ -356,15 +366,15 @@ int LoadConfig( struct MysqldaEnvironment *p_env )
 		if( p_forward_instance == NULL )
 			break;
 		
-		INFOLOG( "instance[%p][%s] serial_range_begin[%lu] power[%lu]" , p_forward_instance , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
+		NOTICELOG( "instance[%p][%s] serial_range_begin[%lu] power[%lu]" , p_forward_instance , p_forward_instance->instance , p_forward_instance->serial_range_begin , p_forward_instance->power );
 		
 		lk_list_for_each_entry( p_forward_server , & (p_forward_instance->forward_server_list) , struct ForwardServer , forward_server_listnode )
 		{
-			INFOLOG( "\tip[%s] port[%d]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
+			NOTICELOG( "\tip[%s] port[%d]" , p_forward_server->netaddr.ip , p_forward_server->netaddr.port );
 		}
 	}
 	
-	INFOLOG( "total_power[%lu]" , p_env->total_power );
+	NOTICELOG( "total_power[%lu]" , p_env->total_power );
 	
 	return 0;
 }
@@ -391,14 +401,14 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 	file_buffer = StrdupEntireFile( p_env->config_filename , & file_size ) ;
 	if( file_buffer == NULL )
 	{
-		ERRORLOG( "*** ERROR : config file[%s] not found , errno[%d]" , p_env->config_filename , errno );
+		ERRORLOG( "config file[%s] not found , errno[%d]" , p_env->config_filename , errno );
 		return -1;
 	}
 	
 	p_conf = (mysqlda_conf *)malloc( sizeof(mysqlda_conf) ) ;
 	if( p_conf == NULL )
 	{
-		ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
 	
@@ -407,7 +417,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 	free( file_buffer );
 	if( nret )
 	{
-		ERRORLOG( "*** ERROR : DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]" , p_env->config_filename , nret );
+		ERRORLOG( "DSCDESERIALIZE_JSON_mysqlda_conf[%s] failed[%d]" , p_env->config_filename , nret );
 		return -1;
 	}
 	
@@ -455,7 +465,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 					p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
 					if( p_forward_server == NULL )
 					{
-						ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+						ERRORLOG( "malloc failed , errno[%d]" , errno );
 						return -1;
 					}
 					memset( p_forward_server , 0x00 , sizeof(struct ForwardServer) );
@@ -478,7 +488,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			p_forward_instance = (struct ForwardInstance *)malloc( sizeof(struct ForwardInstance) ) ;
 			if( p_forward_instance == NULL )
 			{
-				ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+				ERRORLOG( "malloc failed , errno[%d]" , errno );
 				return -1;
 			}
 			memset( p_forward_instance , 0x00 , sizeof(struct ForwardInstance) );
@@ -489,7 +499,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			
 			if( p_conf->forwards[forwards_no]._forward_count <= 0 )
 			{
-				ERRORLOG( "*** ERROR : forward not found" );
+				ERRORLOG( "forward not found" );
 				free( p_forward_instance );
 				return -1;
 			}
@@ -501,7 +511,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 				p_forward_server = (struct ForwardServer *)malloc( sizeof(struct ForwardServer) ) ;
 				if( p_forward_server == NULL )
 				{
-					ERRORLOG( "*** ERROR : malloc failed , errno[%d]" , errno );
+					ERRORLOG( "ERROR : malloc failed , errno[%d]" , errno );
 					free( p_forward_instance );
 					return -1;
 				}
@@ -522,7 +532,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			nret = LinkForwardInstanceTreeNode( p_env , p_forward_instance );
 			if( nret )
 			{
-				ERRORLOG( "*** ERROR : LinkForwardInstanceTreeNode failed[%d] , errno[%d]" , nret , errno );
+				ERRORLOG( "LinkForwardInstanceTreeNode failed[%d] , errno[%d]" , nret , errno );
 				free( p_forward_instance );
 				return -1;
 			}
@@ -530,7 +540,7 @@ int ReloadConfig( struct MysqldaEnvironment *p_env )
 			nret = LinkForwardSerialRangeTreeNode( p_env , p_forward_instance );
 			if( nret )
 			{
-				ERRORLOG( "*** ERROR : LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
+				ERRORLOG( "LinkForwardSerialRangeTreeNode failed[%d] , errno[%d]" , nret , errno );
 				UnlinkForwardInstanceTreeNode( p_env , p_forward_instance );
 				free( p_forward_instance );
 				return -1;

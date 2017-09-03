@@ -3,7 +3,8 @@
 static void usage()
 {
 	printf( "USAGE : mysqlda -f (config_filename) --no-daemon -a [ init | start ]\n" );
-	printf( "                                     [ --loglevel-debug | --loglevel-info | --loglevel-warn | --loglevel-error | --loglevel-fatal ]\n" );
+	printf( "                                     [ --loglevel-debug | --loglevel-info | --loglevel-notice\n" );
+	printf( "                                     | --loglevel-warn | --loglevel-error | --loglevel-fatal ]\n" );
 	printf( "                -v\n" );
 	return;
 }
@@ -32,7 +33,7 @@ int main( int argc , char *argv[] )
 	}
 	
 	/* 解析命令行参数 */
-	p_env->log_level = LOGLEVEL_ERROR ;
+	p_env->log_level = LOGLEVEL_NOTICE ;
 	for( i = 0 ; i < argc ; i++ )
 	{
 		if( strcmp( argv[i] , "-f" ) == 0 && i + 1 < argc )
@@ -54,6 +55,10 @@ int main( int argc , char *argv[] )
 		else if( strcmp( argv[i] , "--loglevel-info" ) == 0 )
 		{
 			p_env->log_level = LOGLEVEL_INFO ;
+		}
+		else if( strcmp( argv[i] , "--loglevel-notice" ) == 0 )
+		{
+			p_env->log_level = LOGLEVEL_NOTICE ;
 		}
 		else if( strcmp( argv[i] , "--loglevel-warn" ) == 0 )
 		{

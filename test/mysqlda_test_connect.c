@@ -6,9 +6,30 @@
 #include "my_global.h"
 #include "mysql.h"
 
-int main()
+/*
+./mysqlda_test_connect "192.168.6.21" 13306 calvin calvin calvindb
+*/
+
+static void usage()
+{
+	printf( "USAGE : mysqlda_test_connect (ip) (port) (user) (pass) (database)\n" );
+	return;
+}
+
+int main( int argc , char *argv[] )
 {
 	MYSQL		*conn = NULL ;
+	char		*ip = NULL ;
+	unsigned int	port ;
+	char		*user = NULL ;
+	char		*pass = NULL ;
+	char		*database = NULL ;
+	
+	if( argc != 1 + 5 )
+	{
+		usage();
+		exit(7);
+	}
 	
 	printf( "mysql_get_client_info[%s]\n" , mysql_get_client_info() );
 	
@@ -19,7 +40,12 @@ int main()
 		return 1;
 	}
 	
-	if( mysql_real_connect( conn , "192.168.6.21" , "calvin" , "calvin" , "calvindb" , 3306 , NULL , 0 ) == NULL )
+	ip = argv[1] ;
+	port = (unsigned int)atoi(argv[2]) ;
+	user = argv[3] ;
+	pass = argv[4] ;
+	database = argv[5] ;
+	if( mysql_real_connect( conn , ip , user , pass , database , port , NULL , 0 ) == NULL )
 	{
 		printf( "mysql_real_connect failed , mysql_errno[%d][%s]\n" , mysql_errno(conn) , mysql_error(conn) );
 		return 1;

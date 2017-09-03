@@ -172,6 +172,7 @@ struct ForwardCorrelObjectClass
 	char			correl_object_class[ MAXLEN_CORRELOBJECT_CLASS + 1 ] ; /* 核心业务关联对象类 */
 	
 	struct rb_root		forward_correl_object_rbtree ; /* 服务端转发关联对象 类-对象 关系树 */
+	int			forward_correl_object_count ; /* 服务端转发关联对象 数量 */
 	
 	struct rb_node		forward_correl_object_class_rbnode ; /* 树节点 */
 } ;
@@ -214,7 +215,9 @@ struct MysqldaEnvironment
 	int			epoll_fd ; /* epoll描述字 */
 	
 	struct rb_root		forward_library_rbtree ; /* 服务端转发规则 历史树 */
+	int			forward_library_count ; /* 服务端转发规则 数量 */
 	struct rb_root		forward_correl_object_class_rbtree ; /* 服务端转发关联对象类 历史树 */
+	int			forward_correl_object_class_count ; /* 服务端转发关联对象类 数量 */
 } ;
 
 /*
