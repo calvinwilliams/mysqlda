@@ -11,7 +11,7 @@ static void usage()
 
 static void version()
 {
-	printf( "mysqlda v0.0.7.0\n" );
+	printf( "mysqlda v0.0.7.1\n" );
 	return;
 }
 
